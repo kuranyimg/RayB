@@ -1,1307 +1,1429 @@
-import random
 import os
-import importlib.util
-from highrise import*
-from highrise import BaseBot,Position
-from highrise.models import SessionMetadata
-from highrise import Highrise, GetMessagesRequest
+import json
+import sys
+import string
+import shutil
+import asyncio
+import threading
+import yt_dlp
+import os
+import tempfile
+import time
+import base64
+import subprocess
+import asyncio
+from asyncio import run as arun
+from highrise import BaseBot, __main__
+from highrise.models import User, SessionMetadata, Position
+from highrise import *
+from highrise.webapi import *
+from highrise.models_webapi import *
+from highrise.models import *
+import socket
+import aiohttp
+import aiofiles
+import yt_dlp
+from mutagen.mp3 import MP3
+from collections import deque
+import random
+from datetime import datetime, timedelta
+from HRDB import ownerz, playlist, user_ticket, vip_users, msg, restrict, promo, bot_location, ids
 
-casa = ["I Marry You 💍","Of course I do 💍❤️","I don't want to 💍💔","Of course I don't 💍💔","I Love You Of course I marry you 💍"]
+invite = "ROOM ID HER3 ALSO"
 
-curativo = ["🔴You Used the Bandage Your Life Is at: 100%🔴","🔴You Used the Bandage Your Life is at: 50%🔴","🔴You Used the Bandage Your Life is at: 60%🔴","🔴You Used Your Life Bandage is at: 75% Your Life is at: 90%🔴","🔴You Used the Bandage It is at: 91%🔴"]
-         
-bomba = ["💣🧟‍♂️ You Threw a Bomb on 1x Boss Zombie 🧟‍♀️💣","💣🧟 You Threw a Bomb on 3x Boss Zombie 🧟💣","💣🧟‍♂️ You Threw a Bomb on 2x Boss Zombie 💣🧟‍♀️","💣 🧟‍♂️ You Threw a Bomb on 7x Boss Zombie 💣🧟‍♂️","💣🧟 You Threw a Bomb on 4x Boss Zombie 🧟💣"]
+# Icecast server configuration
+SERVER_HOST = "link.zeno.fm" # dont change.
+SERVER_PORT = 80 # dont change
+MOUNT_POINT = "/XYZXYZXYZ" # put ur mountpoint after / in ""
+STREAM_USERNAME = "source" # dont change
+STREAM_PASSWORD = "XYZXYZ"#"put your password"
 
-facada = ["🧟🔪 You Stabbed 1x Zombie 🔪🧟","🧟🔪 You Stabbed 6x Zombie 🔪🧟","🧟🔪 You Stabbed 7x Zombie 🔪🧟","🧟‍♂️🔪🧟‍♂️ You Stabbed 8x Zombie 🔪🧟‍♂️","🧟 🔪 You Stabbed 10x Zombie 🔪🧟","🧟🔪 You Stabbed 9x Zombie 🔪🧟","🧟‍♀️🔪🧟‍♂️ You Stabbed 3x Zombie 🧟‍♂️🔪🧟‍♀️"]
+AUDIO_FILES = [
+    "Nothing.mp3"
+]
 
-atirar = ["🧟You Shot 5x Zombie🧟","🧟You Shot 1x Zombie🧟","🧟You Shot 8x Zombie🧟","🧟You Shot 3x Zombie🧟","🧟‍♂️You Shot 5x Zombie🧟‍♂️ ","🧟‍♀️You Shot 10x Zombie🧟‍♀️","🧟🧟‍♀️You Shot 9x Zombie 🧟🧟‍♀️"]
+class BotDefinition:
+    def __init__(self, bot: BaseBot, room_id: str, api_token: str):
+        self.bot = bot
+        self.room_id = room_id
+        self.api_token = api_token
 
-play = ["🔴Your Life is at 50% use : /bandage","🔴Your Life is at 20% use : /bandage","🔴Your Life is at 40% use : /bandage","🧟The Zombies Are Coming Use : /stab or /shoot","🧟🧟‍♂️ There Are Many Zombies 🧟‍♀️🧟 🛡 Use: /shield 🛡","🧟The Zombie Boss Is Coming Use: /bomb","🧟The Zombies Are Coming Use: /stab or/ shoot","🧟🧟‍♂️ There are Lots of Zombies 🧟‍♀️🧟 🛡 Use: /shield 🛡","🔴Your Life is at 60% use: /bandage","🔴Your Life is at 10% use: /bandage" ,"🧟The Zombies Are Coming Use : /stab or /shoot" ,"🧟The Zombies Are Coming Use : /stab or /shoot","🧟The Zombies Are Coming Use : /stab or /shoot","🧟The Zombies They're Coming Use : /stab or /shoot","🧟The Zombies Are Coming Use : /stab or /shoot","🧟The Zombies Are Coming Use : /stab or /shoot "]
+class SEA(BaseBot):
+    def __init__(self):
+        super().__init__()
+        self.message_task = None
+        self.notification_task = None
+        self.promo_task = None
+        self.username = None
+        self.owner_id = None
+        self.owner = None
+        self.bot_id = None
+        self.skip = False
+        self.bitrate = '128k'
+        self.choices = {}
+        self.req_files = deque()
+        self.now = deque()
+        self.message = deque()
+        self.wait = []
+        self.state_file = "bot_state.json"
+        self.req_files_dir = "/home/container/reqfiles"
+        self.fav_dir = "/home/container/fav"
+        os.makedirs(self.fav_dir, exist_ok=True)
+        os.makedirs(self.req_files_dir, exist_ok=True)
+        self.load_state()
 
-pescar = ["🥈YOU WON THE MEDAL: SILVER FISHERMAN🥈","🥉YOU WON THE MEDAL: BRONZE FISHERMAN🥉","🥉YOU WON THE MEDAL: BRONZE FISHERMAN🥉","🥉YOU WON THE MEDAL: BRONZE FISHERMAN🥉","🥉YOU WON OR THE MEDAL: BRONZE FISHERMAN🥉","🟡Event: /carp 🟡","⚫️You Fished 3x Night Moon⚫️(+150 POINTS)","⚫️You Fished 2x Night Moon⚫️(+100 POINTS)"," ⚫️You Fished 1x Night Moon⚫️(+50 POINTS)","🟡You Fished 1x Golden Shrimp 🟡 (MULTIPLE POINT)","🟡You Fished 1x Golden Flounder🟡 (MULTIPLE POINT)","🪼🌈You Fished 1x Octopus Rainbow🪼🌈 (EXTRA POINTS)","🐢You Caught 3x Turtle 🐢 (LOSS OF POINTS)","🦑You Caught 1x Giant Squid 🦑 (LEGENDARY)","🦀You Caught 6x Crab 🦀 (COMMON)", "🦀You Caught 2x Crab 🦀 (COMMON)","🦀You Caught 8x Crab 🦀 (COMMON)","🪼You Caught 1x Sea Octopus🪼(EPIC)","🦈You Caught 2x Shark🦈 (EPIC)", "🦈You Fished 5x Sharks🦈 (EPIC)","🦈You Fished 8x Sharks🦈 (EPIC)","🦈You Fished 1x Sharks🦈 (EPIC)","🐠You Fished 1x Sea Tuna🐠 (LEGENDARY)", "🐠You Caught 3x Clown Fish🐠 (LEGENDARIOUS)","🐠You Caught 3x Sea Tuna🐠 (LEGENDARIOUS)","🐠You Caught 1x Clown Fish🐠 (LEGENDARIOUS)","🐠You Caught 8x Clown Fish🐠 (LEGENDARY) )","🐠You Caught 10x Clown Fish🐠 (LEGENDARY)","🐟You Caught 1x Salmon🐟 (RARE)","🧜🏼‍♀️You Caught 5x Mermaid🧜🏼‍♀️(EPIC)","🧜🏼‍ ♀️You Caught 2x Mermaid🧜🏼‍♀️(EPIC)","🧜🏼‍♀️You Caught 1x Mermaid🧜🏼‍♀️(EPIC)","🐟You Caught 3x Salmon🐟 (RARE)","🟡You Caught 1 x Tilapia Dourada🟡 (MULTIPLE POINT)","☠️🐋You Caught 3x Dead Whale☠️🐋 (LOSS OF POINTS)","🐋You Caught 11x Sea Whale🐋(COMMON)","🐋🌈You Caught 1x Rainbow Whale🌈 🐋 (EXTRA POINTS)","🥈YOU WON THE MEDAL: SILVER FISHERMAN🥈","🥇YOU WON THE MEDAL: GOLD FISHERMAN🥇","🏅YOU WON THE MEDAL: STAR FISHERMAN🏅","💎Event: /shrimp 💎"]
+    def save_state(self):
+        """Save the current state of the req_files deque, with updated file paths."""
+        try:
+            data = {
+                "req_files": [
+                    {
+                        "title": item["title"],
+                        "url": item["url"],
+                        "duration": item["duration"],
+                        "user": item["user"]
+                    }
+                    for item in self.req_files
+                ]
+            }
+            with open(self.state_file, "w") as f:
+                json.dump(data, f)
+        except Exception as e:
+            print(f"Error saving state: {type(e).__name__} - {e}")
 
-class Bot(BaseBot):
-    async def on_start(self, session_metadata: SessionMetadata) -> None:
-        print("working")
-        await self.highrise.walk_to(Position(17.5 , 0.0 , 12.5, "FrontRight"))
-             
-    async def on_user_join(self, user: User, position: Position | AnchorPosition) -> None:
-        # Only the bot prints the message in the console
-        print(f"{user.username} (ID: {user.id})")
+    def load_state(self):
+        """Load the saved state of the req_files deque from a JSON file."""
+        if os.path.exists(self.state_file):
+            try:
+                with open(self.state_file, "r") as f:
+                    data = json.load(f)
+                    self.req_files = deque(data.get("req_files", []))
+                    os.remove(self.state_file)
+            except Exception as e:
+                print(f"Error loading state: {type(e).__name__} - {e}")
 
-        # Announce the user has joined the room publicly
-        await self.highrise.chat(f"{user.username} joined!")
+    def move_files_and_update_urls(self):
+        for item in self.req_files:
+            if item["url"].startswith("/tmp/"):
+                temp_file_path = item["url"]
+                new_file_path = os.path.join(self.req_files_dir, os.path.basename(temp_file_path))
 
-        # Send welcome whispers to the user
-        await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [!emote list] or [1-97] for dances & emotes.")
-        await self.highrise.send_whisper(user.id, f"❤️Use: [/help] for more information.")
-        await self.highrise.send_whisper(user.id, f"❤Type F3 F2 and F1 to teleport between the floor 🤍.")
-
-        # Send emotes
-        await self.highrise.send_emote("dance-hipshake")
-        await self.highrise.send_emote("emote-lust", user.id)
-
-       # React with a heart emoji
-        await self.highrise.react("heart", user.id)
-        
-    async def on_chat(self, user: User, message: str) -> None:
-        print(f"{user.username}: {message}")  
-
-        if message.lower().startswith("-tipall ") and user.username == "RayBM":
-              parts = message.split(" ")
-              if len(parts) != 2:
-                  await self.highrise.send_message(user.id, "Invalid command")
-                  return
-              # Checks if the amount is valid
-              try:
-                  amount = int(parts[1])
-              except:
-                  await self.highrise.chat("Invalid amount")
-                  return
-              # Checks if the bot has the amount
-              bot_wallet = await self.highrise.get_wallet()
-              bot_amount = bot_wallet.content[0].amount
-              if bot_amount < amount:
-                  await self.highrise.chat("Not enough funds")
-                  return
-              # Get all users in the room
-              room_users = await self.highrise.get_room_users()
-              # Check if the bot has enough funds to tip all users the specified amount
-              total_tip_amount = amount * len(room_users.content)
-              if bot_amount < total_tip_amount:
-                  await self.highrise.chat("Not enough funds to tip everyone")
-                  return
-              # Tip each user in the room the specified amount
-              for room_user, pos in room_users.content:
-                  bars_dictionary = {
-                      10000: "gold_bar_10k",
-                      5000: "gold_bar_5000",
-                      1000: "gold_bar_1k",
-                      500: "gold_bar_500",
-                      100: "gold_bar_100",
-                      50: "gold_bar_50",
-                      10: "gold_bar_10",
-                      5: "gold_bar_5",
-                      1: "gold_bar_1"
-                  }
-                  fees_dictionary = {
-                      10000: 1000,
-                      5000: 500,
-                      1000: 100,
-                      500: 50,
-                      100: 10,
-                      50: 5,
-                      10: 1,
-                      5: 1,
-                      1: 1
-                  }
-                  # Convert the amount to a string of bars and calculate the fee
-                  tip = []
-                  remaining_amount = amount
-                  for bar in bars_dictionary:
-                      if remaining_amount >= bar:
-                          bar_amount = remaining_amount // bar
-                          remaining_amount = remaining_amount % bar
-                          for i in range(bar_amount):
-                              tip.append(bars_dictionary[bar])
-                              total = bar + fees_dictionary[bar]
-                  if total > bot_amount:
-                      await self.highrise.chat("Not enough funds")
-                      return
-                  for bar in tip:
-                      await self.highrise.tip_user(room_user.id, bar)
-
-        if message.lower().startswith("-tipme ") and user.username== "RayBM":
                 try:
-                    amount_str = message.split(" ")[1]
-                    amount = int(amount_str)
-                    bars_dictionary = {
-                        10000: "gold_bar_10k",
-                        5000: "gold_bar_5000",
-                        1000: "gold_bar_1k",
-                        500: "gold_bar_500",
-                        100: "gold_bar_100",
-                        50: "gold_bar_50",
-                        10: "gold_bar_10",
-                        5: "gold_bar_5",
-                        1: "gold_bar_1"
-                    }
-                    fees_dictionary = {
-                        10000: 1000,
-                        5000: 500,
-                        1000: 100,
-                        500: 50,
-                        100: 10,
-                        50: 5,
-                        10: 1,
-                        5: 1,
-                        1: 1
-                    }
-                    # Get bot's wallet balance
-                    bot_wallet = await self.highrise.get_wallet()
-                    bot_amount = bot_wallet.content[0].amount
-                    # Check if bot has enough funds
-                    if bot_amount < amount:
-                        await self.highrise.chat("Not enough funds in the bot's wallet.")
-                        return
-                    # Convert amount to bars and calculate total
-                    tip = []
-                    total = 0
-                    for bar in sorted(bars_dictionary.keys(), reverse=True):
-                        if amount >= bar:
-                            bar_amount = amount // bar
-                            amount %= bar
-                            tip.extend([bars_dictionary[bar]] * bar_amount)
-                            total += bar_amount * bar + fees_dictionary[bar]
-                    if total > bot_amount:
-                        await self.highrise.chat("Not enough funds to tip the specified amount.")
-                        return
-                    # Send tip to the user who issued the command
-                    for bar in tip:
-                        await self.highrise.tip_user(user.id, bar)
-                    await self.highrise.chat(f"You have been tipped {amount_str}.")
-                except (IndexError, ValueError):
-                    await self.highrise.chat("Invalid tip amount. Please specify a valid number.")
-                    
-          
-        if message.lower() == "/fish":
-           frase = random.choice(pescar)
-           await self.highrise.send_whisper(user.id,frase)
-        
-        if message.lower() == "/bomb":
-           frase = random.choice(bomba)
-           await self.highrise.send_whisper(user.id,frase)
-        if message.lower() == "/stab":
-           frase = random.choice(facada)
-           await self.highrise.send_whisper(user.id,frase)
-        if message.lower() == "/curative":
-           frase = random.choice(curativo)
-           await self.highrise.send_whisper(user.id,frase)
-        if message.lower() == "/play":
-           frase = random.choice(play)
-           await self.highrise.send_whisper(user.id,frase)
-        if message.lower() == "/shoot":
-           frase = random.choice(atirar)
-           await self.highrise.send_whisper(user.id,frase)
-
-        if message.lower() == "/marry me?":
-           frase = random.choice(casa)
-           await self.highrise.chat(frase)
-            
-
-        if message.startswith("/carp"):
-           await self.highrise.react("clap",user.id)
-           await self.highrise.send_whisper(user.id,"🟡You Caught 1x Golden Carp🟡 YOU WON THE MEDAL: (MEGA FISHERMAN) ")
-          
-        if message.startswith("/shrimp "):
-           await self.highrise.react("clap",user.id)
-           await self.highrise.send_whisper(user.id,"💎You Caught 1x Diamond Shrimp💎YOU WON THE MEDAL: (DIAMANTE MASTER FISHERMAN  )")                                
-        if message.startswith("/curative"):
-           await self.highrise.react("heart",user.id)
-
-        if message.startswith("/shield"):
-           await self.highrise.react("heart",user.id)
-           await self.highrise.send_whisper(user.id,f"@{user.username} 🛡 You Used The Shield 🛡")
-
-        if message.startswith("whiskey") or      message.startswith("whisky") or      message.startswith("Whiskey") or             message.startswith("drink") or             message.startswith("Drink") or message.startswith("!whiskey"):
-           await self.highrise.react("heart",user.id)
-           await self.highrise.send_whisper(user.id,f"@{user.username}  Whiskey: because adulting is hard and sometimes you need a little liquid encouragement! 🥃")
-
-        if message.startswith("beer") or  message.startswith("Beer") or  message.startswith("alcohol") or message.startswith("Alcohol") or  message.startswith("!beer") or message.startswith("!Drunk"):
-           await self.highrise.react("heart",user.id)
-           await self.highrise.send_whisper(user.id,f"@{user.username}  on the house drive safe 🍺")
-
-        if message.startswith("wine") or  message.startswith("redwine") or  message.startswith("red wine") or message.startswith("plonk") or  message.startswith("Plonk") or message.startswith("vino"):
-           await self.highrise.react("heart",user.id)
-           await self.highrise.send_whisper(user.id,f"@{user.username}  Ah, red wine—fancy!🍷 Trying to look sophisticated, or just hoping for purple teeth?🍷")
-        
-        if message.startswith("champagne") or  message.startswith("vodka") or  message.startswith("Vodka") or message.startswith("Champagne") or  message.startswith("celebration") or message.startswith("celebrate"):
-           await self.highrise.react("heart",user.id)
-           await self.highrise.send_whisper(user.id,f"@{user.username}  Ah, “Let’s raise a glass to celebrate the good times and the friends who make them unforgettable.”🍸🎉")
-      
-       
-        if message.startswith("cocktail") or  message.startswith("mixed") or  message.startswith("mojito") or message.startswith("Potion") or  message.startswith("tonic") or message.startswith("julep"):
-           await self.highrise.react("heart",user.id)
-           await self.highrise.send_whisper(user.id,f"@{user.username}  “Cheers to the moments that turn into memories, one drink at a time.🥂")
-                                          
-         
-        if message.startswith("Water") or message.startswith("water") or message.startswith("thirsty") or message.startswith("Thirsty") or  message.startswith("dry") or message.startswith("Dry"):
-           await self.highrise.react("heart",user.id)
-           await self.highrise.send_whisper(user.id,f"@{user.username}  You could say, “Ah, water—because staying hydrated is the real adventure!”🚰💧")
-                      
-            
-        if        message.startswith("/tele") or              message.startswith("/tp") or              message.startswith("/fly") or     message.startswith("!tele") or      message.startswith("!tp") or     message.startswith("!fly"):
-          if user.username == "iced_yu" or user.username == "FallonXOXO" or user.username == "RayMG":            await self.teleporter(message)
-
-        if        message.startswith("/") or              message.startswith("-") or              message.startswith(".") or          message.startswith("!"):
-            await self.command_handler(user, message)
-          
-        if message.startswith("!emoteall"):
-          await self.highrise.send_whisper(user.id,"Fashion All , Wrong All , Cutey All , Superpose All , Punk All , Tiktok2 All, Tiktok8 All , Tiktok9 All , Tiktok10 All , Gagging All , Blackpink All , Creepy All , Revelation All , Bashful All , Arabesque All , Party All")
-
-        if message.startswith("!emoteall"):
-          await self.highrise.send_whisper(user.id,"Pose3 All , Pose7 All , Pose5 All , Pose1 All , Enthused All , Pose8 All , Sing All , Teleport All , Telekinesis All , Casual All , Icecream All , Watch All")
-
-        if message.startswith("!emoteall"):
-          await self.highrise.send_whisper(user.id,"Zombie All , Celebrate All , Kiss All , Bow All , Snowangel All , Confused All , Charging All , Wei All , Cursing All , Greedy All , Russian All , Shop All , Model All , Ren All , Tiktok4 All , Snake All , Uwu All")
-
-        if        message.startswith("-floor1") or message.startswith("!floor1") or message.startswith("-floor 1") or message.startswith("Floor 1") or message.startswith("Floor1") or message.startswith("/floor1") or    message.startswith("floor1") or message.startswith("-1") or    message.startswith("floor1") or message.startswith("f1") or message.startswith("f 1") or message.startswith("floor1") or message.startswith("F1")  or   message.startswith("floor 1") or message.startswith("!floor 1"):
-          await self.highrise.teleport(user.id, Position(9.5 , 0.0 , 16.5))
-                 
-        if        message.startswith("-floor3") or message.startswith("!floor3") or message.startswith("-floor 3") or message.startswith("Floor 3") or message.startswith("Floor3") or message.startswith("/floor3") or    message.startswith("floor3") or message.startswith("-3") or    message.startswith("floor3") or message.startswith("f3") or message.startswith("f 3") or message.startswith("floor3") or message.startswith("F3")  or   message.startswith("floor 3") or message.startswith("!floor 3"):
-          await self.highrise.teleport(user.id, Position(12.5 , 19.25 , 6.5))
-
-        if        message.startswith("-floor4") or message.startswith("!floor4") or message.startswith("-floor 4") or message.startswith("Floor 4") or message.startswith("Floor4") or message.startswith("/floor4") or    message.startswith("floor4") or message.startswith("-4") or    message.startswith("floor4") or message.startswith("f4") or message.startswith("f 4") or message.startswith("floor4") or message.startswith("F4")  or   message.startswith("floor 4") or message.startswith("!floor 4"):
-          await self.highrise.teleport(user.id, Position(14.5 , 20.0 , 1.5))
-            
-        if        message.startswith("-floor2") or message.startswith("!floor2") or message.startswith("-floor 2") or message.startswith("Floor 2") or message.startswith("Floor2") or message.startswith("/floor2") or    message.startswith("floor2") or message.startswith("-2") or    message.startswith("floor2") or message.startswith("f2") or message.startswith("f 2") or message.startswith("floor2") or message.startswith("F2")  or   message.startswith("floor 2") or message.startswith("!floor 2"):
-          await self.highrise.teleport(user.id, Position(14.5 , 9.0 , 6.0))
-            
-        if message.startswith("!emoteall"):
-          await self.highrise.send_whisper(user.id,"Skating All , Time All , Gottago All  , Scritchy All , Bitnervous All , Jingle All , Curtsy All , Hot All , Hyped All ,Sleigh All , Surprise All, Repose All , Kawaii All , Touch All , Gift All , Pushit All , Tiktok All , Smooch All , Launch All")
-          
-        if        message.startswith("!lista") or    message.startswith("!emote list") or                                 message.startswith("!emote list") or message.startswith("!list"):
-            await self.highrise.send_whisper(user.id,"!angry ,!thumbsup , !cursing , !flex , !gagging , !celebrate , !blackpink , !tiktok2 , !tiktok9 , !pennywise , !russian , !shop , !enthused , !singing ,!wrong , !guitar , !pinguin , !astronaut , !saunter , !flirt , !creepy , !watch , !revelation")
-          
-        if        message.startswith("!lista") or    message.startswith("!emote list") or                                 message.startswith("!emote list") or message.startswith("!list"):
-            await self.highrise.send_whisper(user.id,"!tiktok10 ,!tiktok8 , !cutey , !pose3 , !pose5 , !pose1 , !pose8 , !pose7  !pose9 , !cute , !superpose , !frog , !snake , !energyball , !maniac , !teleport , !float , !telekinesi , !fight , !wei , !fashion , !boxer , !bashful , !arabesque , !party")
-          
-        if        message.startswith("!lista") or    message.startswith("!emote list") or                                 message.startswith("!emote list") or message.startswith("!list"):
-            await self.highrise.send_whisper(user.id,"!confused , !charging , !snowangel , !hot , !snowball , !curtsy , !bow ,!model , !greedy , !tired , !shy , !wave , !hello , !lau ,!yes , !sad , !no , !kiss , !casual , !ren , !sit , !punk , !zombie , !gravity , !icecream ,!uwu , !sayso , !star")
-
-        if        message.startswith("!lista") or    message.startswith("!emote list") or                                 message.startswith("!emote list") or message.startswith("!list"):
-          await self.highrise.send_whisper(user.id,"!skating , !bitnervous , !scritchy , !timejump , !gottago , !jingle , !hyped , !sleigh , !surprise , !repose , !kawaii , !touch , !gift , !pushit , !tiktok , !salute , !attention , !smooch , !launch")
-          
-        if        message.startswith("/lista") or    message.startswith("/emote list") or                                 message.startswith("/emote list") or message.startswith("/list"):
-            await self.highrise.send_whisper(user.id,"/angry ,/thumbsup , /cursing , /flex , /gagging , /celebrate , /blackpink , /tiktok2 , /tiktok9 , /pennywise , /russian , /shop , /enthused , /singing , /wrong , /guitar , /pinguin , /astronaut , /saunter , /flirt , /creepy , /watch , /revelation")
-          
-        if        message.startswith("/lista") or    message.startswith("/emote list") or                                 message.startswith("/emote list") or message.startswith("/list"):
-            await self.highrise.send_whisper(user.id,"/tiktok10 , /tiktok8 , /cutey , /pose3 , /pose5 , /pose1 , /pose8 , /pose7  /pose9 , /cute , /superpose , /frog , /snake , /energyball , /maniac , /teleport , /float , /telekinesi , /fight , /wei , /fashion , /boxer , /bashful , /arabesque , /party")
-          
-        if        message.startswith("/lista") or    message.startswith("/emote list") or                                 message.startswith("/emote list") or message.startswith("/list"):
-            await self.highrise.send_whisper(user.id,"/confused , /charging , /snowangel , /hot , /snowball , /curtsy , /bow ,/model , /greedy , /lust , /tired , /shy , /wave , /hello , /lau , /yes , /sad , /no , /kiss , /casual , /ren ,   /sit , /punk , /zombie , /gravity , /icecream ,/uwu , /sayso , /star")
-
-        if        message.startswith("/lista") or    message.startswith("/emote list") or                                 message.startswith("/emote list") or message.startswith("/list"):
-          await self.highrise.send_whisper(user.id,"/skating , /bitnervous , /scritchy , /timejump , /gottago , /jingle , /hyped , /sleigh , /surprise , /repose , /kawaii /touch , /pushit , /gift , /tiktok , /salute , /attention , /smooch , /launch")
-        
-        if        message.startswith("/lista") or         message.startswith("/emote list") or message.startswith("!emoteall") or message.startswith("!emote list") or message.startswith("!lista"):
-            await self.highrise.send_emote("dance-floss")
-
-        if        message.startswith("/peoples") or      message.startswith("!peoples"):
-            room_users = (await self.highrise.get_room_users()).content
-            await self.highrise.chat(f"There are {len(room_users)} people in the room  ")
-            await self.highrise.send_emote("dance-floss")
-                     
-        if             message.startswith("!emotes") or message.startswith("/emotes"):
-            await self.highrise.send_emote("emote-robot")
-            await self.highrise.send_whisper(user.id,f"emotes available from number 1 to 97")
-
-        if        message.startswith("-Help") or      message.startswith("/help") or      message.startswith("!help") or message.startswith("-help"):
-            await self.highrise.chat(f"/lista | /pessoas | /emotes | | /marry me? | /play /fish /userinfo @ | !emoteall | !tele @ | !summon @ | !kick @ | !tele z,y,x | !tele @ z,y,x | ")
-            await self.highrise.chat(f"[Emote] All | !emote all [Emote]")        
-            await self.highrise.chat(f"{user.username} all activation codes must be used >> ! or/")
-            await self.highrise.send_emote("dance-floss")
-          
-        if        message.startswith("😡") or      message.startswith("🤬") or      message.startswith("😤") or             message.startswith("🤨") or             message.startswith("😒") or message.startswith("🙄"):
-            await self.highrise.send_emote("emote-boxer",user.id)
-   
-        if        message.startswith("🤔") or      message.startswith("🧐") or      message.startswith("🥸") or             message.startswith("🫤") or message.startswith("😕"):
-            await self.highrise.send_emote("emote-confused",user.id)
-
-        if        message.startswith("🤣") or      message.startswith("😂") or             message.startswith("ja") or             message.startswith("Ha") or         message.startswith("Ka") or           message.startswith("Ja") or           message.startswith("ha") or          message.startswith("ks") or             message.startswith("kk") or             message.startswith("Kk") or message.startswith("😁") or message.startswith("😀"):
-            await self.highrise.send_emote("emote-laughing",user.id)
-
-        if        message.startswith("😗") or      message.startswith("😘") or      message.startswith("😙") or             message.startswith("💋") or             message.startswith("😚"):
-            await self.highrise.send_emote("emote-kiss",user.id)
-            await self.highrise.send_emote("emote-blowkisses")
-
-        if        message.startswith("😊") or      message.startswith("🥰") or      message.startswith("😳") or message.startswith("🤗"):
-            await self.highrise.send_emote("idle-uwu",user.id)
-            await self.highrise.send_emote("emote-blowkisses")
-
-        if        message.startswith("🤢") or      message.startswith("🤮") or      message.startswith("🤧") or             message.startswith("😵‍💫") or message.startswith("🤒"):
-            await self.highrise.send_emote("emoji-gagging",user.id)
-
-        if        message.startswith("😱") or      message.startswith("😬") or      message.startswith("😰") or             message.startswith("😫") or message.startswith("😨"):
-            await self.highrise.send_emote("idle-nervous",user.id)
-
-        if message.startswith("🤯"):
-            await self.highrise.send_emote("emote-headblowup",user.id)
-
-        if        message.startswith("☺️") or      message.startswith("🫣") or       message.startswith("😍") or      message.startswith("🥺") or message.startswith("🥹"):
-            await self.highrise.send_emote("emote-shy2",user.id)
-
-        if        message.startswith("😏") or     message.startswith("🙃") or     message.startswith("🤤") or     message.startswith("😋") or     message.startswith("😏") or message.startswith("😈"):
-            await self.highrise.send_emote("emote-lust",user.id)           
-
-        if        message.startswith("🥵") or message.startswith("🫠"):
-            await self.highrise.send_emote("emote-hot",user.id)
-                   
-        if        message.startswith("!wrong") or   message.startswith("wrong") or      message.startswith("/wrong") or      message.startswith("Wrong") or message.startswith("1"):
-            await self.highrise.send_emote("dance-wrong",user.id)
-
-        if        message.startswith("/fashion") or      message.startswith("fashion") or       message.startswith("!fashion") or      message.startswith("Fashion") or message.startswith("2"):
-            await self.highrise.send_emote("emote-fashionista",user.id)
-
-        if        message.startswith("/gravity") or      message.startswith("gravity") or       message.startswith("!gravity") or      message.startswith("Gravity") or message.startswith("3"):
-            await self.highrise.send_emote("emote-gravity",user.id)
-
-        if        message.startswith("/icecream") or                                message.startswith("icecream") or message.startswith("!icecream") or      message.startswith("Icecream") or message.startswith("4"):
-            await self.highrise.send_emote("dance-icecream",user.id)
-
-        if        message.startswith("/casual") or  message.startswith("casual") or     message.startswith("!casual") or      message.startswith("Casual") or message.startswith("5"):
-            await self.highrise.send_emote("idle-dance-casual",user.id)
-
-        if        message.startswith("/kiss") or      message.startswith("!kiss") or  message.startswith("kiss") or      message.startswith("Kiss") or message.startswith("6"):
-            await self.highrise.send_emote("emote-kiss",user.id)
-
-        if        message.startswith("/no") or      message.startswith("no") or            message.startswith("!no") or      message.startswith("No") or message.startswith("7"):
-            await self.highrise.send_emote("emote-no",user.id)
-       
-        if        message.startswith("/sad") or      message.startswith("!sad") or    message.startswith("sad") or     message.startswith("Sad") or message.startswith("8"):
-            await self.highrise.send_emote("emote-sad",user.id)
-            
-
-        if        message.startswith("/yes") or      message.startswith("!yes") or    message.startswith("yes") or     message.startswith("Yes") or message.startswith("9"):
-            await self.highrise.send_emote("emote-yes",user.id)
-            
-
-        if        message.startswith("/lau") or   message.startswith("laughing") or   message.startswith("Laughing") or   message.startswith("/laughing") or   message.startswith("!laughing") or      message.startswith("!lau") or    message.startswith("Lau") or     message.startswith("lau") or message.startswith("10"):
-            await self.highrise.send_emote("emote-laughing",user.id)
-            
-        if        message.startswith("/hello") or message.startswith("hello") or      message.startswith("!hello") or      message.startswith("Hello") or message.startswith("11"):
-            await self.highrise.send_emote("emote-hello",user.id)
-            
-
-        if        message.startswith("/wave") or  message.startswith("wave") or     message.startswith("!wave") or      message.startswith("Wave") or message.startswith("12"):
-            await self.highrise.send_emote("emote-wave",user.id)
-            
-        if        message.startswith("/shy") or   message.startswith("shy") or      message.startswith("!shy") or      message.startswith("Shy") or message.startswith("13"):
-            await self.highrise.send_emote("emote-shy",user.id)
-            
-
-        if        message.startswith("/tired") or message.startswith("tired") or      message.startswith("!tired") or      message.startswith("Tired") or message.startswith("14"):
-            await self.highrise.send_emote("emote-tired",user.id)
-            
-
-        if        message.startswith("/flirt") or message.startswith("flirt") or message.startswith("flirtywave") or message.startswith("flirty") or      message.startswith("!flirt") or      message.startswith("Flirt") or          message.startswith("/Flirty") or           message.startswith("!Flirty") or           message.startswith("Flirty") or       message.startswith("!flirtywave") or    message.startswith("/flirtywave") or    message.startswith("Flirtywave") or message.startswith("15"):
-            await self.highrise.send_emote("emote-lust",user.id)
-            
-
-        if        message.startswith("/greedy") or      message.startswith("!greedy") or      message.startswith("Greedy") or message.startswith("greedy") or message.startswith("16"):
-            await self.highrise.send_emote("emote-greedy",user.id)
-            
-        if        message.startswith("/model") or      message.startswith("!model") or      message.startswith("Model") or  message.startswith("model") or message.startswith("17"):
-            await self.highrise.send_emote("emote-model",user.id)
-            
-        if        message.startswith("/bow") or      message.startswith("!bow") or      message.startswith("Bow") or    message.startswith("bow") or message.startswith("18"):
-            await self.highrise.send_emote("emote-bow",user.id)
-            
-
-        if        message.startswith("/curtsy") or      message.startswith("!curtsy") or      message.startswith("Curtsy") or message.startswith("curtsy") or message.startswith("19"):
-            await self.highrise.send_emote("emote-curtsy",user.id)
-            
-
-        if        message.startswith("/snowball") or      message.startswith("!snowball") or      message.startswith("Snowball") or                              message.startswith("snowball") or message.startswith("20"):
-            await self.highrise.send_emote("emote-snowball",user.id)
-            
-        if        message.startswith("/hot") or      message.startswith("!hot") or      message.startswith("Hot") or    message.startswith("hot") or message.startswith("21"):
-            await self.highrise.send_emote("emote-hot",user.id)
-            
-
-        if        message.startswith("/snowangel") or      message.startswith("!snowangel") or      message.startswith("Snowangel") or                              message.startswith("snowangel") or message.startswith("22"):
-            await self.highrise.send_emote("emote-snowangel",user.id)
-            
-
-        if        message.startswith("/charging") or      message.startswith("!charging") or      message.startswith("Charging") or                              message.startswith("charging") or message.startswith("23"):
-            await self.highrise.send_emote("emote-charging",user.id)
-            
-
-        if        message.startswith("/confused") or      message.startswith("!confused") or      message.startswith("Confused") or                              message.startswith("confused") or message.startswith("24"):
-            await self.highrise.send_emote("emote-confused",user.id)
-            
-
-        if        message.startswith("/telekinesis") or      message.startswith("!telekinesis") or      message.startswith("Telekinesis") or                            message.startswith("telekinesis") or message.startswith("25"):
-            await self.highrise.send_emote("emote-telekinesis",user.id)
-            
-
-        if        message.startswith("/float") or      message.startswith("!float") or      message.startswith("Float") or  message.startswith("float") or message.startswith("26"):
-            await self.highrise.send_emote("emote-float",user.id)
-            
-
-        if        message.startswith("/teleport") or      message.startswith("!teleport") or      message.startswith("Teleport") or                              message.startswith("teleport") or      message.startswith("27"):
-            await self.highrise.send_emote("emote-teleporting",user.id)
-            
-
-        if        message.startswith("/maniac") or      message.startswith("!maniac") or      message.startswith("Maniac") or message.startswith("maniac") or message.startswith("28"):
-            await self.highrise.send_emote("emote-maniac",user.id)
-            
-
-        if        message.startswith("/energyball") or      message.startswith("!energyball") or      message.startswith("Energyball") or                             message.startswith("eneryball") or message.startswith("29"):
-            await self.highrise.send_emote("emote-energyball",user.id)
-            
-
-        if        message.startswith("/snake") or      message.startswith("!snake") or      message.startswith("Snake") or  message.startswith("snake") or message.startswith("30"):
-            await self.highrise.send_emote("emote-snake",user.id)
-            
-
-        if        message.startswith("/frog") or      message.startswith("!frog") or      message.startswith("Frog") or   message.startswith("frog") or message.startswith("31"):
-            await self.highrise.send_emote("emote-frog",user.id)
-            
-
-        if        message.startswith("/superpose") or      message.startswith("!superpose") or      message.startswith("Superpose") or                              message.startswith("superpose") or message.startswith("32"):
-            await self.highrise.send_emote("emote-superpose",user.id)
-            
-
-        if        message.startswith("/cute") or      message.startswith("!cute") or      message.startswith("Cute") or   message.startswith("cute") or message.startswith("33"):
-            await self.highrise.send_emote("emote-cute",user.id)
-
-        if        message.startswith("/pose7") or      message.startswith("!pose7") or      message.startswith("Pose7") or  message.startswith("pose7") or message.startswith("34"):
-            await self.highrise.send_emote("emote-pose7",user.id)
-            
-
-        if        message.startswith("/pose8") or      message.startswith("!pose8") or      message.startswith("Pose8") or  message.startswith("pose8") or message.startswith("35"):
-            await self.highrise.send_emote("emote-pose8",user.id)
-            
-
-        if        message.startswith("/pose1") or      message.startswith("!pose1") or      message.startswith("Pose1") or  message.startswith("pose1") or message.startswith("36"):
-            await self.highrise.send_emote("emote-pose1",user.id)
-            
-
-        if        message.startswith("/pose5") or      message.startswith("!pose5") or      message.startswith("Pose5") or  message.startswith("pose5") or message.startswith("37"):
-            await self.highrise.send_emote("emote-pose5",user.id)
-            
-
-        if        message.startswith("/pose3") or      message.startswith("!pose3") or      message.startswith("Pose3") or  message.startswith("pose3") or message.startswith("38"):
-            await self.highrise.send_emote("emote-pose3",user.id)
-            
-
-        if        message.startswith("/cutey") or      message.startswith("!cutey") or      message.startswith("Cutey") or  message.startswith("cutey") or message.startswith("39"):
-            await self.highrise.send_emote("emote-cutey",user.id)
-            
-        if        message.startswith("/tik10") or      message.startswith("!tik10") or      message.startswith("Tik10") or  message.startswith("tik10") or message.startswith("40"):
-            await self.highrise.send_emote("dance-tiktok10",user.id)
-            
-
-        if        message.startswith("/sing") or      message.startswith("!sing") or          message.startswith("Sing") or           message.startswith("Singing") or       message.startswith("/singing") or   message.startswith("!singing") or                              message.startswith("singing") or                              message.startswith("!singalong")  or                             message.startswith("/singalong") or message.startswith("Singaloung") or                             message.startswith("singaloung") or message.startswith("41"):
-            await self.highrise.send_emote("idle_singing",user.id)
-            
-
-        if        message.startswith("/enthused") or      message.startswith("!enthused") or      message.startswith("Enthused") or                              message.startswith("enthused") or message.startswith("42"):
-            await self.highrise.send_emote("idle-enthusiastic",user.id)
-            
-
-        if        message.startswith("/shop") or      message.startswith("!shop") or      message.startswith("Shop") or   message.startswith("shop") or   message.startswith("!shopping") or message.startswith("/shopping") or message.startswith("Shopping") or message.startswith("shopping") or message.startswith("43"):
-            await self.highrise.send_emote("dance-shoppingcart",user.id)
-
-        if        message.startswith("/russian") or      message.startswith("!russian") or      message.startswith("Russian") or                              message.startswith("russian") or message.startswith("44"):
-            await self.highrise.send_emote("dance-russian",user.id)
-
-        if        message.startswith("/pennywise") or      message.startswith("!pennywise") or      message.startswith("Pennywise") or                              message.startswith("pennywise") or message.startswith("45"):
-            await self.highrise.send_emote("dance-pennywise",user.id)
-
-        if        message.startswith("/tik2") or      message.startswith("!tik2") or      message.startswith("Tik2") or   message.startswith("!dontstartnow") or   message.startswith("/dontstartnow") or   message.startswith("dontstartnow") or   message.startswith("Dontstartnow") or   message.startswith("tik2") or   message.startswith("46"):
-            await self.highrise.send_emote("dance-tiktok2",user.id)
-
-        if        message.startswith("/blackpink") or      message.startswith("!blackpink") or      message.startswith("Blackpink") or                              message.startswith("blackpink") or message.startswith("47"):
-            await self.highrise.send_emote("dance-blackpink",user.id)
-
-        if        message.startswith("/celebrate") or      message.startswith("!celebrate") or      message.startswith("Celebrate") or                              message.startswith("celebrate") or message.startswith("48"):
-            await self.highrise.send_emote("emoji-celebrate",user.id)
-
-        if        message.startswith("/gagging") or      message.startswith("!gagging") or      message.startswith("Gagging") or                              message.startswith("gagging") or message.startswith("49"):
-            await self.highrise.send_emote("emoji-gagging",user.id)
-
-        if        message.startswith("/flex") or      message.startswith("!flex") or      message.startswith("Flex") or   message.startswith("flex") or message.startswith("50"):
-            await self.highrise.send_emote("emoji-flex",user.id)
-
-        if        message.startswith("/cursing") or      message.startswith("!cursing") or      message.startswith("Cursing") or                              message.startswith("cursing") or message.startswith("51"):
-            await self.highrise.send_emote("emoji-cursing",user.id)
-
-        if        message.startswith("/thumbsup") or      message.startswith("!thumbsup") or      message.startswith("Thumbsup") or                              message.startswith("thumbsup") or message.startswith("52"):
-            await self.highrise.send_emote("emoji-thumbsup",user.id)
-
-        if        message.startswith("/angry") or      message.startswith("!angry") or      message.startswith("Angry") or  message.startswith("angry") or message.startswith("53"):
-            await self.highrise.send_emote("emoji-angry",user.id)
-
-        if        message.startswith("/punk") or      message.startswith("!punk") or      message.startswith("Punk") or   message.startswith("punk") or message.startswith("54"):
-            await self.highrise.send_emote("emote-punkguitar",user.id)
-
-        if        message.startswith("/zombie") or      message.startswith("!zombie") or      message.startswith("Zombie") or message.startswith("zombie") or message.startswith("55"):
-            await self.highrise.send_emote("emote-zombierun",user.id)
-
-        if        message.startswith("/sit") or      message.startswith("!sit") or      message.startswith("Sit") or    message.startswith("sit") or message.startswith("56"):
-            await self.highrise.send_emote("idle-loop-sitfloor",user.id)
-
-        if        message.startswith("/fight") or      message.startswith("!fight") or      message.startswith("Fight") or  message.startswith("fight") or  message.startswith("!swordfight") or message.startswith("/swordfight") or message.startswith("Swordfight") or message.startswith("swordfight") or message.startswith("57"):
-            await self.highrise.send_emote("emote-swordfight",user.id)
-
-        if        message.startswith("/ren") or      message.startswith("!ren") or      message.startswith("Ren") or    message.startswith("ren") or    message.startswith("!macarena") or     message.startswith("/macarena") or      message.startswith("Macarena") or message.startswith("macarena") or message.startswith("58"):
-            await self.highrise.send_emote("dance-macarena",user.id)
-
-        if        message.startswith("/wei") or      message.startswith("!wei") or      message.startswith("Wei") or    message.startswith("wei") or message.startswith("!weird") or message.startswith("/weird") or message.startswith("Weird") or message.startswith("weird") or  message.startswith("59"):
-            await self.highrise.send_emote("dance-weird",user.id)
-
-        if        message.startswith("/tik8") or      message.startswith("!tik8") or      message.startswith("Tik8") or           message.startswith("/savage") or           message.startswith("!savage") or           message.startswith("Savage") or message.startswith("tik8") or message.startswith("savage") or message.startswith("60"):
-            await self.highrise.send_emote("dance-tiktok8",user.id)
-
-        if        message.startswith("/tik9") or      message.startswith("!tik9") or      message.startswith("Tik9") or           message.startswith("/viral") or           message.startswith("!viral") or           message.startswith("Viral") or  message.startswith("!viralgroove") or message.startswith("/viralgroove") or message.startswith("Viralgroove") or message.startswith("viralgroove") or message.startswith("tik9") or message.startswith("viral") or message.startswith("61"):
-            await self.highrise.send_emote("dance-tiktok9",user.id)
-
-        if        message.startswith("/uwu") or      message.startswith("!uwu") or      message.startswith("Uwu") or    message.startswith("uwu") or message.startswith("62"):
-            await self.highrise.send_emote("idle-uwu",user.id)
-
-        if        message.startswith("/tik4") or      message.startswith("!tik4") or      message.startswith("Tik4") or               message.startswith("/sayso") or               message.startswith("!sayso") or               message.startswith("Sayso") or  message.startswith("sayso") or message.startswith("tik4") or message.startswith("63"):
-            await self.highrise.send_emote("idle-dance-tiktok4",user.id)
-
-        if        message.startswith("/star") or      message.startswith("!star") or      message.startswith("Star") or   message.startswith("star") or message.startswith("64"):
-            await self.highrise.send_emote("emote-stargazer",user.id)
-
-        if        message.startswith("/pose9") or      message.startswith("!pose9") or      message.startswith("Pose9") or  message.startswith("pose9") or message.startswith("65"):
-            await self.highrise.send_emote("emote-pose9",user.id)
-
-        if        message.startswith("/boxer") or      message.startswith("!boxer") or      message.startswith("Boxer") or  message.startswith("boxer") or message.startswith("66"):
-            await self.highrise.send_emote("emote-boxer",user.id)
-
-        if        message.startswith("/guitar") or      message.startswith("!guitar") or      message.startswith("Guitar") or message.startswith("guitar") or message.startswith("67"):
-            await self.highrise.send_emote("idle-guitar",user.id)
-
-        if        message.startswith("/penguin") or      message.startswith("!penguin") or      message.startswith("Penguin") or   message.startswith("penguin") or message.startswith("68"):
-            await self.highrise.send_emote("dance-pinguin",user.id)
-
-        if        message.startswith("/astronaut") or      message.startswith("!astronaut") or      message.startswith("Astronaut") or                                message.startswith("astronaut") or message.startswith("69"):
-            await self.highrise.send_emote("emote-astronaut",user.id)
-
-        if        message.startswith("/saunter") or      message.startswith("!saunter") or      message.startswith("Saunter") or               message.startswith("/anime") or               message.startswith("!anime") or               message.startswith("Anime") or    message.startswith("anime") or   message.startswith("saunter") or   message.startswith("70"):
-            await self.highrise.send_emote("dance-anime",user.id)
-
-        if        message.startswith("/creepy") or      message.startswith("!creepy") or      message.startswith("Creepy") or   message.startswith("creepy") or message.startswith("71"):
-            await self.highrise.send_emote("dance-creepypuppet",user.id)
-
-        if        message.startswith("/watch") or      message.startswith("!watch") or      message.startswith("Watch") or    message.startswith("watch") or message.startswith("72"):
-            await self.highrise.send_emote("emote-creepycute",user.id)
-
-        if        message.startswith("/revelations") or      message.startswith("!revelations") or      message.startswith("Revelations") or                                message.startswith("revelations") or message.startswith("73"):
-            await self.highrise.send_emote("emote-headblowup",user.id)
-
-        if        message.startswith("/bashful") or      message.startswith("!bashful") or      message.startswith("Bashful") or  message.startswith("bashful") or message.startswith("74"):
-            await self.highrise.send_emote("emote-shy2",user.id)
-
-        if        message.startswith("/arabesque") or      message.startswith("!arabesque") or      message.startswith("Arabesque") or                                message.startswith("arabesque") or message.startswith("75"):
-            await self.highrise.send_emote("emote-pose10",user.id)
-
-        if        message.startswith("/party") or      message.startswith("!party") or      message.startswith("Party") or    message.startswith("party") or message.startswith("76"):
-            await self.highrise.send_emote("emote-celebrate",user.id)
-
-        if        message.startswith("/skating") or      message.startswith("!skating") or      message.startswith("Skating") or  message.startswith("skating") or message.startswith("77"):
-            await self.highrise.send_emote("emote-iceskating",user.id)
-
-        if        message.startswith("/scritchy") or      message.startswith("!scritchy") or      message.startswith("Scritchy") or message.startswith("scritchy") or message.startswith("78"):
-            await self.highrise.send_emote("idle-wild",user.id)
-
-        if        message.startswith("/bitnervous") or      message.startswith("!bitnervous") or      message.startswith("Bitnervous") or               message.startswith("!nervous") or               message.startswith("/nervous") or               message.startswith("Nervous") or  message.startswith("nervous") or   message.startswith("bitnervous") or message.startswith("79"):
-            await self.highrise.send_emote("idle-nervous",user.id)
-
-        if        message.startswith("/timejump") or      message.startswith("!timejump") or      message.startswith("Timejump") or message.startswith("timejump") or message.startswith("time") or   message.startswith("Time") or   message.startswith("!time") or   message.startswith("/time") or message.startswith("80"):
-            await self.highrise.send_emote("emote-timejump",user.id)
-
-        if        message.startswith("/gottago") or      message.startswith("!gottago") or      message.startswith("Gottago") or message.startswith("gottago") or  message.startswith("81"):
-            await self.highrise.send_emote("idle-toilet",user.id)
-
-        if        message.startswith("/jingle") or      message.startswith("!jingle") or      message.startswith("Jingle") or  message.startswith("jingle") or message.startswith("82"):
-            await self.highrise.send_emote("dance-jinglebell",user.id)
-
-        if        message.startswith("/hyped") or      message.startswith("!hyped") or      message.startswith("Hyped") or   message.startswith("hyped") or message.startswith("83"):
-            await self.highrise.send_emote("emote-hyped",user.id)
-
-        if        message.startswith("/sleigh") or      message.startswith("!sleigh") or        message.startswith("sleigh") or      message.startswith("Sleigh") or message.startswith("84"):
-            await self.highrise.send_emote("emote-sleigh",user.id)
-
-        if        message.startswith("/surprise") or      message.startswith("!surprise") or      message.startswith("surprise") or      message.startswith("Surprise") or message.startswith("85"):
-            await self.highrise.send_emote("emote-pose6",user.id)
-          
-        if        message.startswith("/repose") or      message.startswith("!repose") or        message.startswith("repose") or      message.startswith("Repose") or message.startswith("86"):
-            await self.highrise.send_emote("sit-relaxed",user.id)
-
-        if        message.startswith("/kawaii") or      message.startswith("!kawaii") or        message.startswith("kawaii") or       message.startswith("Kawaii") or message.startswith("87"):
-            await self.highrise.send_emote("dance-kawai",user.id)
-
-        if        message.startswith("/touch") or      message.startswith("!touch") or         message.startswith("touch") or      message.startswith("Touch") or message.startswith("88"):
-            await self.highrise.send_emote("dance-touch",user.id)
-
-        if        message.startswith("/gift") or      message.startswith("!gift") or          message.startswith("gift") or      message.startswith("Gift") or message.startswith("89"):
-            await self.highrise.send_emote("emote-gift",user.id)
-
-        if        message.startswith("/pushit") or      message.startswith("!pushit") or        message.startswith("pushit") or      message.startswith("Pushit") or message.startswith("90"):
-            await self.highrise.send_emote("dance-employee",user.id)
-
-        if        message.startswith("salute") or      message.startswith("!salute") or        message.startswith("salute") or      message.startswith("Salute") or message.startswith("91"):
-            await self.highrise.send_emote("emote-cutesalute",user.id)
-
-        if        message.startswith("/attention") or      message.startswith("!attention") or        message.startswith("attention") or      message.startswith("Attention") or message.startswith("92"):
-            await self.highrise.send_emote("emote-salute",user.id)                                                                   
-
-        if        message.startswith("/tiktok") or      message.startswith("!tiktok") or        message.startswith("tiktok") or    message.startswith("Tiktok") or message.startswith("93"):
-            await self.highrise.send_emote("dance-tiktok11",user.id)
-
-        if        message.startswith("/smooch") or      message.startswith("!smooch") or        message.startswith("smooch") or    message.startswith("Smooch") or message.startswith("94"):
-            await self.highrise.send_emote("emote-kissing-bound",user.id)
-
-        if        message.startswith("/launch") or      message.startswith("!launch") or        message.startswith("launch") or   message.startswith("Launch") or message.startswith("95"):
-            await self.highrise.send_emote("emote-launch",user.id)
-
-        if        message.startswith("/fairyfloat") or      message.startswith("!fairyfloat") or        message.startswith("fairyfloat") or    message.startswith("Fairyfloat") or message.startswith("96"):
-            await self.highrise.send_emote("idle-floating",user.id)
-
-        if        message.startswith("/fairytwirl") or      message.startswith("!fairytwirl") or        message.startswith("fairytwirl") or    message.startswith("Fairytwirl") or message.startswith("97"):
-            await self.highrise.send_emote("emote-looping",user.id)
-
-        if              message.startswith("Fairyfloat All") or                              message.startswith("/emote all fairyfloat") or       message.startswith("!emote all fairyfloat"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-floating", roomUser.id)
-                
-
-        if              message.startswith("Fairytwirl All") or                              message.startswith("/emote all fairytwirl") or       message.startswith("!emote all fairytwirl"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-looping", roomUser.id)
-
-        if              message.startswith("Launch All") or                              message.startswith("/emote all launch") or       message.startswith("!emote all launch"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-launch", roomUser.id)
-                
-        if              message.startswith("Smooch All") or                              message.startswith("/emote all smooch") or       message.startswith("!emote all smooch"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "GothicGirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-kissing-bound", roomUser.id)
-                
-        if              message.startswith("Pushit All") or                              message.startswith("/emote all pushit") or       message.startswith("!emote all pushit"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-employee", roomUser.id)
-                
-        if              message.startswith("Gift All") or                              message.startswith("/emote all gift") or       message.startswith("!emote all gift"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-gift", roomUser.id)
-                
-        if              message.startswith("Attention All") or                              message.startswith("/emote all attention") or       message.startswith("!emote all attention"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-salute", roomUser.id)
-                
-
-        if              message.startswith("Salute All") or                              message.startswith("/emote all salute") or       message.startswith("!emote all salute"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-cutesalute", roomUser.id)
-                
-        if              message.startswith("Tiktok All") or                              message.startswith("/emote all tiktok") or       message.startswith("!emote all tiktok"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-tiktok11", roomUser.id)
-                      
-        if              message.startswith("Touch All") or                              message.startswith("/emote all touch") or       message.startswith("!emote all touch"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-touch", roomUser.id)
-                           
-        if              message.startswith("Kawaii All") or                              message.startswith("/emote all kawaii") or       message.startswith("!emote all kawaii"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-kawai", roomUser.id)
-                       
-        if              message.startswith("Hot All") or                              message.startswith("/emote all hot") or       message.startswith("!emote all hot"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-hot", roomUser.id)
-                      
-        if              message.startswith("Curtsy All") or                              message.startswith("/emote all curtsy") or       message.startswith("!emote all curtsy"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-curtsy", roomUser.id)
-                
-        if              message.startswith("Surprise All") or                              message.startswith("/emote all surprise") or       message.startswith("!emote all surprise"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose6", roomUser.id)
-                
-        if              message.startswith("Jingle All") or                              message.startswith("/emote all jingle") or       message.startswith("!emote all jingle"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-jinglebell", roomUser.id)
-                
-        if              message.startswith("Creepy All") or                              message.startswith("/emote all creepy") or       message.startswith("!emote all creepy"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-creepypuppet", roomUser.id)
-                
-        if              message.startswith("Nervous All") or message.startswith("Bitnervous All") or      message.startswith("!emote all bitnervous") or message.startswith("/emote all bitnervous") or                             message.startswith("/emote all nervous") or       message.startswith("!emote all nervous"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-nervous", roomUser.id)
-                
-        if              message.startswith("Scritchy All") or                              message.startswith("/emote all scritchy") or       message.startswith("!emote all scritchy"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-wild", roomUser.id)
-                          
-        if              message.startswith("Fashion All") or                              message.startswith("/emote all fashion") or       message.startswith("!emote all fashion"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-fashionista", roomUser.id)
-                             
-        if              message.startswith("Wrong All") or                              message.startswith("/emote all wrong") or       message.startswith("!emote all wrong"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-wrong", roomUser.id)
-                
-        if              message.startswith("Cutey All") or                              message.startswith("/emote all cutey") or       message.startswith("!emote all cutey"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-cutey", roomUser.id)
-                
-        if              message.startswith("Hyped All") or                              message.startswith("/emote all hyped") or       message.startswith("!emote all hyped"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-hyped", roomUser.id)
-                            
-        if              message.startswith("Superpose All") or                              message.startswith("/emote all superpose") or       message.startswith("!emote all superpose"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-superpose", roomUser.id)
-                
-        if              message.startswith("Punk All") or                              message.startswith("/emote all punk") or       message.startswith("!emote all punk"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-punkguitar", roomUser.id) 
-                              
-        if              message.startswith("Dontstartnow All") or message.startswith("Tiktok2 All") or      message.startswith("!emote all dontstartnow") or message.startswith("/emote all dontstartnow") or                             message.startswith("/emote all tiktok2") or       message.startswith("!emote all tiktok2"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-tiktok2", roomUser.id)
-                            
-        if              message.startswith("Savage All") or message.startswith("Tiktok8 All") or      message.startswith("!emote all savage") or message.startswith("/emote all savage") or                             message.startswith("/emote all tiktok8") or       message.startswith("!emote all tiktok8"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-tiktok8", roomUser.id)
-                             
-        if              message.startswith("Tiktok10 All") or                              message.startswith("/emote all tiktok10") or       message.startswith("!emote all tiktok10"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-tiktok10", roomUser.id)
-                             
-        if              message.startswith("Viral All") or     message.startswith("!emotr all tiktok9") or        message.startswith("/emote all tiktok9") or    message.startswith("Tiktok9 All") or message.startswith("Viralgroove All") or      message.startswith("!emote all viral") or message.startswith("/emote all viralgroove") or                             message.startswith("/emote all viral") or       message.startswith("!emote all viralgroove"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-tiktok9", roomUser.id)
-                            
-        if              message.startswith("Blackpink All") or                              message.startswith("/emote all blackpink") or       message.startswith("!emote all blackpink"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-blackpink", roomUser.id)
-                         
-        if              message.startswith("Gagging All") or                              message.startswith("/emote all gagging") or       message.startswith("!emote all gagging"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emoji-gagging", roomUser.id)
-                
-        if              message.startswith("Pose3 All") or                              message.startswith("/emote all pose3") or       message.startswith("!emote all pose3"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose3", roomUser.id)
-                
-        if              message.startswith("Pose7 All") or                              message.startswith("/emote all pose7") or       message.startswith("!emote all pose7"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose7", roomUser.id)
-
-        if              message.startswith("Pose5 All") or                              message.startswith("/emote all pose5") or       message.startswith("!emote all pose5"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose5", roomUser.id)
-
-        if              message.startswith("Pose1 All") or                              message.startswith("/emote all pose1") or       message.startswith("!emote all pose1"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose1", roomUser.id)
-                
-        if              message.startswith("Pose8 All") or                              message.startswith("/emote all pose8") or       message.startswith("!emote all pose8"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayMG" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose8", roomUser.id)
-     
-        if              message.startswith("Enthused All") or                              message.startswith("/emote all enthused") or       message.startswith("!emote all enthused"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-enthusiastic", roomUser.id)
-                
-        if              message.startswith("Singing All") or message.startswith("Sing All") or      message.startswith("!emote all sing") or message.startswith("/emote all sing") or                             message.startswith("/emote all singing") or       message.startswith("!emote all singing"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle_singing", roomUser.id)
-
-        if              message.startswith("Teleport All") or                              message.startswith("/emote all teleport") or       message.startswith("!emote all teleport"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-teleporting", roomUser.id)
-                
-        if              message.startswith("Telekinesis All") or                              message.startswith("/emote all telekinesis") or       message.startswith("!emote all telekinesis"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-telekinesis", roomUser.id)
-
-        if              message.startswith("Casual All") or                              message.startswith("/emote all casual") or       message.startswith("!emote all casual"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-dance-casual", roomUser.id)
-                
-        if              message.startswith("Icecream All") or                              message.startswith("/emote all icecream") or       message.startswith("!emote all icecream"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-icecream", roomUser.id)
-                   
-        if              message.startswith("Zombie All") or                              message.startswith("/emote all zombie") or       message.startswith("!emote all zombie"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-zombierun", roomUser.id)
-
-        if              message.startswith("Celebrate All") or                              message.startswith("/emote all celebrate") or       message.startswith("!emote all celebrate"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emoji-celebrate", roomUser.id)
-
-        if              message.startswith("Kiss All") or                              message.startswith("/emote all kiss") or       message.startswith("!emote all kiss"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-kiss", roomUser.id)
-
-        if              message.startswith("Snowangel All") or                              message.startswith("/emote all snowangel") or       message.startswith("!emote all snowangel"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-snowangel", roomUser.id)
-
-        if              message.startswith("Bow All") or                              message.startswith("/emote all bow") or       message.startswith("!emote all bow"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-bow", roomUser.id)
-
-        if              message.startswith("Ice All") or message.startswith("Skating All") or      message.startswith("!emote all ice") or message.startswith("/emote all skating") or                             message.startswith("/emote all ice") or       message.startswith("!emote all skating"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-iceskating", roomUser.id)
-
-        if              message.startswith("Confused All") or                              message.startswith("/emote all confused") or       message.startswith("!emote all confused"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-confused", roomUser.id)
-
-        if              message.startswith("Charging All") or                              message.startswith("/emote all charging") or       message.startswith("!emote all charging"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-charging", roomUser.id)
-
-        if              message.startswith("Weird All") or message.startswith("Wei All") or      message.startswith("!emote all wei") or message.startswith("/emote all wei") or                             message.startswith("/emote all weird") or       message.startswith("!emote all weird"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-weird", roomUser.id)
-
-        if              message.startswith("Greedy All") or                              message.startswith("/emote all greedy") or       message.startswith("!emote all greedy"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-greedy", roomUser.id)
+                    shutil.move(temp_file_path, new_file_path)
+                    item["url"] = new_file_path
+                except Exception as e:
+                    print(f"Error moving file {temp_file_path} to {new_file_path}: {type(e).__name__} - {e}")
+
+    async def restart_bot(self):
+        self.move_files_and_update_urls()
+        self.save_state()
+        await asyncio.sleep(5)
+        os.execv(sys.executable, [sys.executable, 'run.py'] + sys.argv[1:])
+
+    async def on_start(self, session_metadata: SessionMetadata):
+        try:
+            self.username = await self.get_username(session_metadata.user_id)
+            self.bot_id = session_metadata.user_id
+            self.owner_id = session_metadata.room_info.owner_id
+            self.owner = await self.get_username(self.owner_id)
+        except Exception as e:
+            print("Error in get username, and bot id on start:", e)
+
+        if not (self.owner is None):
+            if self.owner not in ownerz:
+                ownerz.append(self.owner)
+            else:
+                pass
+        else:
+            pass
+
+        if not (self.owner_id is None):
+            if self.owner_id not in msg:
+                msg.append(self.owner_id)
+            else:
+                pass
+        else:
+            pass
+
+        if bot_location:
+            await self.highrise.teleport(session_metadata.user_id, Position(**bot_location))
+        else:
+            await self.highrise.teleport(session_metadata.user_id, Position(15.5, 0.25, 2.5, 'FrontRight'))
+
+        if self.notification_task is None or self.notification_task.done():
+            self.notification_task = asyncio.create_task(self.notification())
+        else:
+            pass
+
+        if self.message_task is None or self.message_task.done():
+            self.message_task = asyncio.create_task(self.print_messages())
+
+        if self.promo_task is None or self.promo_task.done():
+            self.promo_task = asyncio.create_task(self.promo())
+        print(f"{self.username} is alive.")
+
+    async def on_message(self, user_id: str, conversation_id: str, is_new_conversation: bool) -> None:
+        try:
+            username = await self.get_username(user_id)
+            info = await self.webapi.get_user(user_id)
+            joined_at = info.user.joined_at
+            if isinstance(joined_at, datetime):
+                one_month_ago = datetime.now(joined_at.tzinfo) - timedelta(days=30)
+                if joined_at <= one_month_ago:
+                    if not username in user_ticket:
+                        user_ticket[username] = 3
+                        await self.highrise.send_message(conversation_id, "Your account is verified.")
+                        await self.highrise.send_message(conversation_id, "You got 3 free tickets")
+                        ids.append(user_id)
+                else:
+                    await self.highrise.send_message(conversation_id, "Your account must be atleast 30 days or older.")
+        except Exception as e:
+            print(e)
+                                
+    async def get_username(self, user_id):
+        user_info = await self.webapi.get_user(user_id)
+        return user_info.user.username
     
-
-        if              message.startswith("Cursing All") or                              message.startswith("/emote all cursing") or       message.startswith("!emote all cursing"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emoji-cursing", roomUser.id)
-
-        if              message.startswith("Russian All") or                              message.startswith("/emote all russian") or       message.startswith("!emote all russian"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-russian", roomUser.id)
-                
-
-        if              message.startswith("Repose All") or                              message.startswith("/emote all repose") or       message.startswith("!emote all repose"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("sit-relaxed", roomUser.id)
-                            
-        if              message.startswith("Shop All") or message.startswith("Shopping All") or      message.startswith("!emote all shopping") or message.startswith("/emote all shop") or                             message.startswith("/emote all shopping") or       message.startswith("!emote all shop"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-shoppingcart", roomUser.id)
-                
-
-        if              message.startswith("Macarena All") or message.startswith("Ren All") or      message.startswith("!emote all macarena") or message.startswith("/emote all macarena") or                             message.startswith("/emote all ren") or       message.startswith("!emote all   ren "):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-macarena", roomUser.id)
-                
-
-        if              message.startswith("Snake All") or                              message.startswith("/emote all snake") or       message.startswith("!emote all snake"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-snake", roomUser.id)
-                
-
-        if              message.startswith("Model All") or                              message.startswith("/emote all model") or       message.startswith("!emote all model"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-model", roomUser.id)
-                
-        if              message.startswith("Sleigh All") or                              message.startswith("/emote all sleigh") or       message.startswith("!emote all sleigh"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-sleigh", roomUser.id)
-                
-        if              message.startswith("Sayso All") or message.startswith("Tiktok4 All") or      message.startswith("!emote all sayso") or message.startswith("/emote all sayso") or                             message.startswith("/emote all tiktok4") or       message.startswith("!emote all tiktok4"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-dance-tiktok4", roomUser.id)
-
-        if              message.startswith("Uwu All") or                              message.startswith("/emote all uwu") or       message.startswith("!emote all uwu"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-uwu", roomUser.id)
-            
-
-        if              message.startswith("Star All") or                              message.startswith("/emote all star") or       message.startswith("!emote all star"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-stargazer", roomUser.id)
-                
-
-        if              message.startswith("Pose9 All") or                              message.startswith("/emote all pose9") or       message.startswith("!emote all pose9"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose9", roomUser.id)
-
-        if              message.startswith("Boxer All") or                              message.startswith("/emote all boxer") or       message.startswith("!emote all boxer"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-boxer", roomUser.id)
-
-        if              message.startswith("Airguitar All") or message.startswith("Guitar All") or      message.startswith("!emote all guitar") or message.startswith("/emote all airguitar") or                             message.startswith("/emote all guitar") or       message.startswith("!emote all airguitar"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-guitar", roomUser.id)
-
-        if              message.startswith("Penguin All") or message.startswith("Pinguin All") or      message.startswith("!emote all penguin") or message.startswith("/emote all penguin") or                             message.startswith("/emote all pinguin") or       message.startswith("!emote all pinguin"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-pinguin", roomUser.id)   
-            
-        if              message.startswith("Astronaut All") or message.startswith("Zero All") or      message.startswith("!emote all zero") or message.startswith("/emote all zero") or                             message.startswith("/emote all astronaut") or       message.startswith("!emote all astronaut"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-astronaut", roomUser.id)
-                
-        if              message.startswith("Saunter All") or   message.startswith("Anime All") or   message.startswith("!emote all anime") or   message.startswith("/emote all anime") or                              message.startswith("/emote all saunter") or       message.startswith("!emote all saunter"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("dance-anime", roomUser.id)         
-
-        if              message.startswith("Flirt All") or     message.startswith("!emote all flirt") or    message.startswith("/emote all flirt") or    message.startswith("!emote all flirty") or     message.startswith("Flirtywave All") or    message.startswith("/emote all flirty") or    message.startswith("/emote all flirt") or                               message.startswith("/emote all flirtywave") or       message.startswith("!emote all flirtywave"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-lust", roomUser.id)
-            
-
-        if              message.startswith("Watch All") or                              message.startswith("/emote all watch") or       message.startswith("!emote all watch"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-creepycute", roomUser.id)
-                        
-        if              message.startswith("Revelations All") or                              message.startswith("/emote all revelations") or       message.startswith("!emote all revelations"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-headblowup", roomUser.id)
-            
-        if              message.startswith("Bashful All") or                              message.startswith("/emote all bashful") or       message.startswith("!emote all bashful"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-shy2", roomUser.id)
-            
-
-        if              message.startswith("Arabesque All") or                              message.startswith("/emote all arabesque") or       message.startswith("!emote all arabesque"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-pose10", roomUser.id)
-            
-        
-        if              message.startswith("Party All") or                              message.startswith("/emote all party") or       message.startswith("!emote all party"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-celebrate", roomUser.id)
-            
-        if              message.startswith("Time All") or                              message.startswith("/emote all time") or       message.startswith("!emote all time"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae" or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("emote-timejump", roomUser.id)
-                
-
-        if              message.startswith("Gottago All") or                              message.startswith("/emote all gottago") or       message.startswith("!emote all gottago"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "RayBM" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae" or user.username == "iced_yu":
-            roomUsers = (await self.highrise.get_room_users()).content
-            for roomUser, _ in roomUsers:
-                await self.highrise.send_emote("idle-toilet", roomUser.id)
-            
-        if        message.startswith("/tp") or      message.startswith("!tp") or      message.startswith("tele") or          message.startswith("Tp") or          message.startswith("Tele") or  message.startswith("!tele"):
-          target_username =         message.split("@")[-1].strip()
-          await                     self.teleport_to_user(user, target_username)
-
-        if                            message.startswith("Summon") or         message.startswith("Summom") or         message.startswith("!summom") or        message.startswith("/summom") or        message.startswith("/summon") or  message.startswith("!summon"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "Shaun_Knox" or user.username == "sh1n1gam1699" or user.username == "Dreamy._.KY" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "_irii_" or user.username == "RayBM":
-           target_username = message.split("@")[-1].strip()
-           await self.teleport_user_next_to(target_username, user)
-
-        if              message.startswith("Carteira") or  message.startswith("Wallet") or    message.startswith("wallet") or       message.startswith("carteira"):
-          if user.username == "FallonXOXO" or user.username == "RayBM" or user.username == "sh1n1gam1699":
-            wallet = (await self.highrise.get_wallet()).content
-            await self.highrise.send_whisper(user.id,f"AMOUNT  : {wallet[0].amount} {wallet[0].type}")
-            await self.highrise.send_emote("dance-tiktok14")
-              
-        if message.startswith("!kick"):
-          if user.username == "FallonXOXO" or user.username == "RayBM":
-              pass
-          else:
-              await self.highrise.chat("🤍.")
-              return
-          #separete message into parts
-          parts = message.split()
-          #check if message is valid "kick @username"
-          if len(parts) != 2:
-              await self.highrise.chat("🤍.")
-              return
-          #checks if there's a @ in the message
-          if "@" not in parts[1]:
-              username = parts[1]
-          else:
-              username = parts[1][1:]
-          #check if user is in room
-          room_users = (await self.highrise.get_room_users()).content
-          for room_user, pos in room_users:
-              if room_user.username.lower() == username.lower():
-                  user_id = room_user.id
-                  break
-          if "user_id" not in locals():
-              await self.highrise.chat("user not found, please fix the code coordinate ")
-              return
-          #kick user
-          try:
-              await self.highrise.moderate_room(user_id, "kick")
-          except Exception as e:
-              await self.highrise.chat(f"{e}")
-              return
-          #send message to chat
-          await self.highrise.chat(f"{username} He was banned from the room!!")
-
-    async def teleport(self, user: User, position: Position):
-        try:
-            await self.highrise.teleport(user.id, position)
-        except Exception as e:
-            print(f"Caught Teleport Error: {e}")
-
-    async def teleport_to_user(self, user: User, target_username: str) -> None:
-        try:
-            room_users = await self.highrise.get_room_users()
-            for target, position in room_users.content:
-                if target.username.lower() == target_username.lower():
-                    z = position.z
-                    new_z = z - 1
-                    await self.teleport(user, Position(position.x, position.y, new_z, position.facing))
-                    break
-        except Exception as e:
-            print(f"An error occurred while teleporting to {target_username}: {e}")
-
-    async def teleport_user_next_to(self, target_username: str, requester_user: User) -> None:
-        try:
-            # Get the position of the requester_user
-            room_users = await self.highrise.get_room_users()
-            requester_position = None
-            for user, position in room_users.content:
-                if user.id == requester_user.id:
-                    requester_position = position
-                    break
-
-            # Find the target user and their position
-            for user, position in room_users.content:
-                if user.username.lower() == target_username.lower():
-                    z = requester_position.z
-                    new_z = z + 1  # Example: Move +1 on the z-axis (upwards)
-                    await self.teleport(user, Position(requester_position.x, requester_position.y, new_z, requester_position.facing))
-                    break
-        except Exception as e:
-            print(f"An error occurred while teleporting {target_username} next to {requester_user.username}: {e}")
-          
-    async def teleporter(self, message: str)-> None:
-        """
-            Teleports the user to the specified user or coordinate
-            Usage: /teleport <username> <x,y,z>
-                                                                """
-        #separates the message into parts
-        #part 1 is the command "/teleport"
-        #part 2 is the name of the user to teleport to (if it exists)
-        #part 3 is the coordinates to teleport to (if it exists)
-        try:
-            command, username, coordinate = message.split(" ")
-        except:
-            
+    async def invite_all(self, user):
+        if not user.username in ownerz:
+            await self.highrise.send_whisper(user.id, "You cant use this command.")
             return
-        
-        #checks if the user is in the room
-        room_users = (await self.highrise.get_room_users()).content
-        for user in room_users:
-            if user[0].username.lower() == username.lower():
-                user_id = user[0].id
-                break
-        #if the user_id isn't defined, the user isn't in the room
-        if "user_id" not in locals():
-            
-            return
-            
-        #checks if the coordinate is in the correct format (x,y,z)
         try:
-            x, y, z = coordinate.split(",")
-        except:
-          
-            return
-        
-        #teleports the user to the specified coordinate
-        await self.highrise.teleport(user_id = user_id, dest = Position(float(x), float(y), float(z)))
+            for erm in ids:
+                message_id = f"1_on_1:{erm}:{self.bot_id}"
+            await self.highrise.send_message(
+                message_id,
+                message_type="invite",
+                content="Join this room!", 
+                room_id=invite)
+        except Exception as e:
+            await self.highrise.chat(f"error: {e}")
+    
+    async def on_user_move(self, user: User, pos: Position) -> None:
+        # contant @SALAR_KHAN in hr to buy auto floor teleport.
+        pass
 
-    async def command_handler(self, user: User, message: str):
-        parts = message.split(" ")
-        command = parts[0][1:]
-        functions_folder = "functions"
-        # Check if the function exists in the module
-        for file_name in os.listdir(functions_folder):
-            if file_name.endswith(".py"):
-                module_name = file_name[:-3]  # Remove the '.py' extension
-                module_path = os.path.join(functions_folder, file_name)
-                
-                # Load the module
-                spec = importlib.util.spec_from_file_location(module_name, module_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                
-                # Check if the function exists in the module
-                if hasattr(module, command) and callable(getattr(module, command)):
-                    function = getattr(module, command)
-                    await function(self, user, message)
-        
-        # If no matching function is found
-        return        
+    async def on_user_leave(self, user: User) -> None:
+        pass
+
 
     async def on_whisper(self, user: User, message: str) -> None:
-        print(f"{user.username} whispered: {message}")
+        pass
 
-        # Handle private messages for RayBM and botmes
-        if user.username.lower() == "raybm" or user.username.lower() == "botmes":
-            await self.highrise.chat(message)
-            print(f"Broadcasted private message to the room: {message}")
+    async def on_chat(self, user: User, message: str):
+        if message.startswith("/invite"):
+            try:
+                await self.invite_all(user)
+            except Exception as e:
+                await self.highrise.chat(f"Issue: {e}")
+        if not message.lower() == "no":
+            if not message.lower() == "yes":
+                if user.username in self.choices:
+                    try:
+                        if not user.username in self.wait:
+                            self.wait.append(user.username)
+                            await self.highrise.send_whisper(user.id, "Type 'yes' or 'no' to apply the changes.")
+                            await self.highrise.send_whisper(user.id, "If you do not respond with 'yes' or 'no' within 10 seconds, the operation will be considered canceled.")
+                        await asyncio.sleep(10)
+                        if user.username in self.choices:
+                            del self.choices[user.username]
+                            if user.username in self.wait:
+                                self.wait.remove(user.username)
+                            await self.highrise.send_whisper(user.id, "Operation cancelled.")
+                    except:
+                        pass
+                        
+        if message.lower() == "no":
+            if user.username == "thisuserisded" or user.username in ownerz:
+                if user.username in self.choices:
+                    await self.highrise.send_whisper(user.id, "Cancelled operation.")
+                    del self.choices[user.username]
+        
+        if message.lower() == "yes":
+            if user.username == "thisuserisded" or user.username in ownerz:
+                if user.username in self.choices:
+                    new_bitrate = self.choices[user.username]
+                    self.bitrate = new_bitrate
+                    await self.highrise.chat(f"Successfully updated audio bitrate to {new_bitrate}.")
+                    del self.choices[user.username]
+        
+        if message.startswith("/cbit") and (user.username == "thisuserisded" or user.username in ownerz):
+            await self.highrise.send_whisper(user.id, f"Currently audio is being broadcasted at {self.bitrate}bps.")
+        
+        if message.startswith("/bitrate ") and (user.username == "thisuserisded" or user.username in ownerz):
+            parts = message.split(" ")
+            if len(parts) > 1:
+                if parts[1].endswith("k") and parts[1][:-1].isdigit():
+                    bitrate = parts[1]
+                    await self.highrise.chat(f"Are you sure you want to change audio bitrate to {bitrate} ?")
+                    await self.highrise.send_whisper(user.id, "This could effect the audio stream.\n"
+"Type 'yes' to confirm else type 'no' to cancel.")
+                    self.choices[user.username] = bitrate
+                else:
+                    await self.highrise.send_whisper(user.id, "Invalid command, usage: /bitrate [number]k\nExample: /bitrate 256k")
+            else:
+                await self.highrise.send_whisper(user.id, "Invalid command, usage: /bitrate [number]k\nExample: /bitrate 128k")
+        
+        if message == "/restart" and (user.username == "thisuserisded" or user.username in ownerz):
+            try:
+                await self.highrise.send_whisper(user.id, "Restarting the bot...")
+                await self.restart_bot()
+            except Exception as e:
+                print("Error in /restart command: ", e)
 
-        # ... (Your existing logic for other commands)
+        if message.startswith("/help"):
+            try:
+                await self.highrise.send_whisper(user.id,"\nAVAILABLE COMMANDS:\n/play <song name> or /play <youtube url> - Play a song.\n/next - Display the next song in the queue.\n/skip - Skip current song.\n/skip [number] - Skip a song in the queue.")
+                await asyncio.sleep(3)
+                await self.highrise.send_whisper(user.id, "\n/top [number] - Places a song at number in the queue\n"
+                                    "/now - Display the currently playing song\n"
+                                    "/dump [number] - Get the info of song in queue\n"
+                                    "/wallet - To get info of your tickets.\n"
+                                    "/give @user [number] - Give user tickets.")
+                await asyncio.sleep(1)
+                await self.highrise.send_whisper(user.id, "\n/rlist - Get info about tickets ratelist.\n/info @user - Get user's tickets info.\n/fav - To add to fav playlist.\n/rfav [number] remove from fav playlist.\n/flist - Prints fav playlist.")
+                await asyncio.sleep(1)
+                await self.highrise.send_whisper(user.id, "\n/cfav - Clears fav playlist.\n/transfer @user [number] - Transfer your tickets to user, (min 6 tickets)") 
+                return
+            except:
+                pass
+        
+        if message.startswith("/play"):
+            if (user.username in vip_users) or (user.username in user_ticket and user_ticket[user.username] > 0) or (user.username in ownerz):
+                try:
+                    query = message.split(" ", 1)[1]
+                    lower_query = query.lower()
+                    for item in restrict:
+                        if item.lower() in lower_query:
+                            await self.highrise.send_whisper(user.id, "This song is restricted. Your ticket is returned.")
+                            return
+                    if query.startswith("https://"):
+                        if "playlist" not in query:
+                            await self.highrise.send_whisper(user.id, "Links aren't supported as per now, add by song - artist.")
+                            return
+                            await self.highrise.send_whisper(user.id, "Your request is being processed. Be patient.")
+                            if user.username in user_ticket:
+                                if user.username not in ownerz and user.username not in vip_users:
+                                    await asyncio.sleep(1)
+                                    await self.highrise.send_whisper(user.id, "• Note: Requests cost 1 ticket. Don't waste your tickets. If your requested song is not found, your ticket will be returned to your wallet.")
+                            await self.add_to_queue(query, user)
+                        else:
+                            await self.highrise.send_whisper(user.id, "\n You can't add playlists. Request one song at a time")
+                    else:
+                        await self.highrise.send_whisper(user.id, "Your request is being processed. Be patient.")
+                        if user.username in user_ticket and user.username not in ownerz and user.username not in vip_users:
+                            await asyncio.sleep(1)
+                            await self.highrise.send_whisper(user.id, "• Note: Requests cost 1 ticket. Don't waste your tickets. If your requested song is not found, your ticket will be returned to your wallet.")
+                        await self.add_to_queue(query, user)
+                except IndexError:
+                    await self.highrise.send_whisper(user.id, "Please provide a song name after /play.")
+                except Exception as e:
+                    print(f"Error in chat command: {e}")
+            else:
+                await self.highrise.send_whisper(user.id, "You don't have enough tickets left.")
+                await asyncio.sleep(3)
+                await self.highrise.send_whisper(user.id, "Type /rlist to get list of rates tokens.")
 
-        if        message.startswith("tele") or              message.startswith("/tp") or              message.startswith("/fly") or     message.startswith("!tele") or      message.startswith("!tp") or     message.startswith("!fly"):
-          if user.username == "FallonXOXO" or user.username == "Its.Melly.Moo.XoXo" or user.username == "sh1n1gam1699" or user.username == "Abbie_38" or user.username == "hidinurbasement" or user.username == "@emping" or user.username == "BabygirlFae"  or user.username == "RayBM":
-            await self.teleporter(message)
+        if message.startswith("/rlist"):
+            try:
+                await self.highrise.send_whisper(user.id, f"\n • Note tip @{self.username} in room,\n • 1 tickets costs 5g\n • 3 tickets costs 10g\n • 30 tickets for 100g, etc.")
+                await asyncio.sleep(2)
+                await self.highrise.send_whisper(user.id, f"\n*NOTE*: you can get vip by tipping 1k to @{self.username} in room.")
+                await asyncio.sleep(2)
+                await self.highrise.send_whisper(user.id, "Vip users can request songs without tickets. Vip users must renew their vip membership every month.")
+            except Exception as e:
+                print("Error in rlist:", e)
 
-        if        message.startswith("/") or              message.startswith("-") or              message.startswith(".") or          message.startswith("!"):
-            await self.command_handler(user, message)
+        if message.startswith("/dump "):
+            try:
+                index_str = message.split("/dump ")[1]
+                index = int(index_str)
+                if self.now and self.now[0]['url'] in self.Audio_files:
+                    index -= 1
+                if 0 <= index < len(self.req_files):
+                    file_info = self.req_files[index]
+                    now = file_info['title']
+                    audio_length = file_info['duration']
+                    if file_info.get('user'):
+                        await self.highrise.send_whisper(
+                            user.id,
+                            f"🎵 {index + 1}: {now}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {audio_length}\n (Requested by @{file_info['user']})"
+                        )
+                    else:
+                        await self.highrise.send_whisper(
+                            user.id,
+                            f"🎵 {now}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {audio_length}"
+                        )
+                else:
+                    await self.highrise.send_whisper(user.id, f"No song found in queue with index {index + 1}.")
+            except ValueError:
+                await self.highrise.send_whisper(user.id, "Invalid index format. Please provide a valid number after /dump.")
+            except Exception as e:
+                print(f"Error in /dump command: {e}")
+                await self.highrise.send_whisper(user.id, "Error processing the request.")
 
-        if                            message.startswith("Summon") or         message.startswith("Summom") or         message.startswith("!summom") or        message.startswith("/summom") or        message.startswith("/summon") or  message.startswith("!summon"):
-          if user.username == "FallonXOXO" or user.username == "Shaun_Knox" or user.username == "@Its.Melly.Moo.XoXo" or user.username == "@RayBM" or user.username == "Dreamy._.KY":
-           target_username = message.split("@")[-1].strip()
-           await self.teleport_user_next_to(target_username, user)
+        if message.startswith("/now"):
+            try:
+                now_playing = self.now[0]
+                now = self.now[0]['title']
+                if self.now[0]['user']:
+                    await self.highrise.send_whisper(user.id, f"🎵 Now playing: {now}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {self.now[0]['audio_length']}\n (Requested by @{now_playing['user']})")
+                else:
+                    await self.highrise.send_whisper(user.id, f"🎵 Now playing: {now}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {self.now[0]['audio_length']}")
+            except IndexError:
+                await self.highrise.send_whisper(user.id, "Nothing is playing right now.")
+            except Exception as e:
+                print(f"Error in /now command: {e}")
+                await self.highrise.send_whisper(user.id, "Error processing the request.")
+        
+        if message.startswith("/wallet"):
+            try:
+                if user.username in user_ticket:
+                    if user_ticket[user.username] == 0:
+                        await self.highrise.send_whisper(user.id, f"You dont have any ticket left in your wallet. Tip @{self.username} to get tickets.")
+                        return
+                    if user_ticket[user.username] == 1:
+                        await self.highrise.send_whisper(user.id, f"You have only {user_ticket[user.username]} ticket left in your wallet.")
+                        return
+                    await self.highrise.send_whisper(user.id, f"You have total: {user_ticket[user.username]} tickets in your wallet.")
+                else:
+                    await self.highrise.send_whisper(user.id, "Text this bot to get 3 free tickets.")
+            except Exception as e:
+                print("The error occurred in wallet:", e)
 
-        if              message.startswith("Carteira") or  message.startswith("Wallet") or    message.startswith("wallet") or       message.startswith("carteira"):
-          if user.username == "FallonXOXO" or user.username == "sh1n1gam1699" or user.username == "RayBM":
-            wallet = (await self.highrise.get_wallet()).content
-            await self.highrise.send_whisper(user.id,f"AMOUNT : {wallet[0].amount} {wallet[0].type}")
-            await self.highrise.send_emote("emote-blowkisses")
+        if message.startswith("/next"):
+            try: 
+                if len(self.req_files) > 1:
+                    next_file = self.req_files[1]
+                    audio_length = (next_file['duration'])
+                    next = next_file['title']
+                    if next_file['user']:
+                        await self.highrise.send_whisper(user.id, f"🎵 Upcoming song: {next}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {audio_length}\n (Requested by @{next_file['user']})")
+                    else:
+                        await self.highrise.send_whisper(user.id, f"🎵 Upcoming song: {next}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {audio_length}")
+                else: 
+                    await self.highrise.send_whisper(user.id, "No next item in queue")
+            except Exception as e: 
+                    print(f"Error in /next command: {e}") 
+                    await self.highrise.send_whisper(user.id, "Error checking queue")
+        
+        if message.startswith("/top") and user.username in ownerz:
+            try:
+                parts = message.split(" ")
+                if len(parts) > 1 and parts[1].isdigit():
+                    index = int(parts[1])
+                    if 0 < index < len(self.req_files):
+                        item_to_move = self.req_files[index]
+                        self.req_files.remove(item_to_move)
+                        self.req_files.insert(1, item_to_move)
+                        await self.highrise.chat(f"Moved {get_ordinal(index)} item to the top of the queue.")
+                    else:
+                        await self.highrise.send_whisper(user.id, f"No song found in queue with {get_ordinal(index)} number.")
+                else:
+                    await self.highrise.send_whisper(user.id, "Invalid command. Please use /top with number from queue")
+            except Exception as e:
+                print(f"Error moving song to top: {e}")
+       
+        if message.startswith("/skip"):
+            try:    
+                parts = message.split(" ")
+                if len(parts) > 1 and parts[1].isdigit():
+                    if int(parts[1]) == 0:
+                        return
+                    index = int(parts[1]) - 1
 
-    async def on_user_move(self, user: User, pos: Position) -> None:
-        print (f"{user.username} moved to {pos}")
+                    if self.now[0]['url'] in AUDIO_FILES:
+                        adjusted_index = index
+                    else:
+                        adjusted_index = index + 1
+                    if 0 <= adjusted_index < len(self.req_files):
+                        removed_file = self.req_files[adjusted_index]
+                        rem_length = self.req_files[adjusted_index]['duration']
+                        req_user = self.req_files[adjusted_index]['user']
+                        fix_rem = removed_file['title']
+                        if not (user.username in ownerz or user.username == req_user):
+                            await self.highrise.send_whisper(user.id, "NOTE: you can only skip the song if you requested it.")
+                            return
+                        if os.path.exists(self.req_files[adjusted_index]['url']):
+                            os.remove(self.req_files[adjusted_index]['url'])
+                        self.req_files.remove(removed_file)
+                        
+                        await self.highrise.chat(f"🎵 Removed from queue: {fix_rem}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {rem_length}")
+                    else: 
+                        await self.highrise.send_whisper(user.id, f"No song found in queue with {get_ordinal(index + 1)} number.") 
+                else:
+                    rem_length = self.now[0]['audio_length']
+                    removed_file = self.now[0]
+                    req_user = self.now[0]['user']
+                    fix_rem = removed_file['title']
+                    if not (user.username in ownerz or user.username == req_user):
+                        await self.highrise.send_whisper(user.id, "NOTE: you can only skip the current song if you requested it.")
+                        return
+                    await self.highrise.chat(f"🎵 Skipping {fix_rem}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {rem_length}")
+                    await asyncio.sleep(3)
+                    self.skip = True
+            except Exception as e:
+                print(f"Error in /skip command: {e}")
+                await self.highrise.send_whisper(user.id, "Nothing is playing.")
 
-    async def on_emote(self, user: User, emote_id: str, receiver: User | None) -> None:
-        print(f"{user.username} emoted: {emote_id}")
+        if message.startswith("/queue"): 
+            try:
+                if len(self.req_files) > 0:
+                    if self.now[0]['url'] not in AUDIO_FILES:
+                        global_index = 1
+                    else:
+                        global_index = 0
+
+                    if len(self.req_files) == 1 and global_index == 1:
+                        await self.highrise.send_whisper(user.id, "The queue is empty.")
+                        return
+
+                    message_content = ""
+                    queue_number = 1
+
+                    for _, file in enumerate(list(self.req_files)[global_index:], start=global_index):
+                        item = f"{queue_number}. {file['title']}\n"
+                        if len(message_content) + len(item) > 255:
+                            await self.highrise.send_whisper(user.id, f"\n{message_content.strip()}")
+                            message_content = item
+                        else:
+                            message_content += item
+                        queue_number += 1
+
+                    if message_content:
+                        await self.highrise.send_whisper(user.id, f"\n{message_content.strip()}")
+                else:
+                    await self.highrise.send_whisper(user.id, "The queue is empty.")
+            except Exception as e:
+                print(f"Error in /queue command: {e}")
+                await self.highrise.send_whisper(user.id, "Error checking the queue.")
+                
+        if message.startswith("/info ") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                info = message.split(" ", 1)[1]
+                infol = info.replace("@", "")
+                if infol in user_ticket and user_ticket[infol] > 0:
+                    if user_ticket[infol] == 1:
+                        await self.highrise.chat(f"User {info} has only {user_ticket[infol]} ticket left.")
+                    if user_ticket[infol] > 1:
+                        await self.highrise.chat(f"User {info} has only {user_ticket[infol]} tickets left.")
+                else:
+                    await self.highrise.chat(f"User {info} does not have any ticket.")
+            except Exception as e:
+                print(e)
+                
+        if message.startswith("/rem ") and user.username in ownerz:
+            try:
+                remvip = message.split(" ", 1)[1]
+                rem = remvip.replace("@", "")
+                if rem in ownerz:
+                    ownerz.remove(rem)
+                    await self.highrise.chat(f"{remvip} removed from ownerz.")
+                else:
+                    await self.highrise.send_whisper(user.id, f"{rem} not in ownerz.")
+            except:
+                pass
+                
+        if message.startswith("/add ") and user.username in ownerz:
+            try:
+                vip = message.split(" ", 1)[1]
+                allowed = vip.replace("@", "")
+                if allowed not in ownerz:
+                    ownerz.append(allowed)
+                    await self.highrise.chat(f"{vip} added to ownerz.")
+                else:
+                    await self.highrise.chat(f"{vip} already in ownerz.")
+            except:
+                await self.highrise.send_whisper(user.id, "Nuh uh")
+
+        if message.startswith("/vipz") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                if vip_users:
+                    message_content = ""
+                    for idx, user_name in enumerate(vip_users, start=1):
+                        item = f"{idx}. {user_name}\n"
+                        if len(message_content) + len(item) > 255:
+                            await self.highrise.send_whisper(user.id, f"\n{message_content.strip()}")
+                            message_content = item
+                        else:
+                            message_content += item
+                    if message_content:
+                        await self.highrise.send_whisper(user.id, f"\n{message_content.strip()}")
+                else:
+                    await self.highrise.send_whisper(user.id, "The vip list is empty.")
+            except Exception as e:
+                print(f"Error in /vipz command: {e}")
+                await self.highrise.send_whisper(user.id, "Error checking the queue.")
+        
+        if message.startswith("/remv ") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                current_date = datetime.now().strftime("%d/%m/%Y")
+                remvip = message.split(" ", 1)[1]
+                rem = remvip.replace("@", "")
+                if rem in vip_users:
+                    vip_users.remove(rem)
+                    await self.highrise.chat(f"{remvip} removed from vip.")
+                    for user_id in msg:
+                        message_id = f"1_on_1:{user_id}:{self.bot_id}"
+                        try:
+                            await self.highrise.send_message(message_id, f"User {remvip} removed from vip on {current_date}, Was removed by @{user.username}")
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            await self.highrise.chat(f"Failed to send message to {user_id}: {e}")
+                            print("Error in sending msg in /addv:", e)
+                else:
+                    await self.highrise.send_whisper(user.id, f"{rem} not a vip.")
+            except:
+                pass
+                
+        if message.startswith("/addv ") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                current_date = datetime.now().strftime("%d/%m/%Y")
+                vip = message.split(" ", 1)[1]
+                allowed = vip.replace("@", "")
+                if allowed not in vip_users:
+                    vip_users.append(allowed)
+                    await self.highrise.chat(f"{vip} added to vip.")
+                    for user_id in msg:
+                        message_id = f"1_on_1:{user_id}:{self.bot_id}"
+                        try:
+                            await self.highrise.send_message(message_id, f"User {vip} got their vip on {current_date}, Was added by @{user.username}")
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            await self.highrise.chat(f"Failed to send message to {user_id}: {e}")
+                            print("Error in sending msg in /addv:", e)
+                else:
+                    await self.highrise.chat(f"{vip} already a vip.")
+            except:
+                await self.highrise.send_whisper(user.id, "Nuh uh")
+
+        if message.startswith("/transfer"):
+            try:
+                _, username, value = message.split(" ", 2)
+                username = username.strip("@")
+                value = int(value)
+                if not value >= 6:
+                    await self.highrise.send_whisper(user.id, "NOTE: you need to transfer at least 6 tickets.")
+                else:
+                    if user_ticket[user.username] >= value:
+                        user_ticket[username] += value
+                        user_ticket[user.username] -= value
+                        await self.highrise.chat(f"Sent {value} tickets to {username}.")
+                    else:
+                        await self.highrise.send_whisper(user.id, "You dont have enough tickets")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        if message.startswith("/give") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                _, username, value = message.split(" ", 2)
+                username = username.strip("@")
+                value = int(value)
+                user_ticket[username] += value
+                if value == 1:
+                    await self.highrise.chat(f"Sent {value} ticket to {username}.")
+                    return
+                await self.highrise.chat(f"Sent {value} tickets to {username}.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        if message.startswith("/rfav ") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                parts = message.split(" ")
+                if len(parts) > 1 and parts[1].isdigit():
+                    index = int(parts[1]) - 1
+                    if 0 <= index <= len(playlist):
+                        removed_file = playlist[index]
+                        rem_length = removed_file.get('audio_length', 'Unknown length')
+                        fix_rem = removed_file.get('title', 'Unknown title')
+                        file_path = removed_file.get('url', '')
+                        if file_path and os.path.exists(file_path):
+                            os.remove(file_path)
+                            playlist.pop(index)
+
+                            await self.highrise.chat(f"🎵 Removed from queue: {fix_rem}\n🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {rem_length}")
+                    else:
+                        await self.highrise.send_whisper(user.id, f"No song found in queue at position {get_ordinal(parts[1])}.")
+                else:
+                    await self.highrise.send_whisper(user.id, "Please provide a valid song number to remove.")
+            except Exception as e:
+                print(f"Error in /rfav command: {e}")
+                await self.highrise.send_whisper(user.id, f"Error: {e}")
+
+        if message.startswith("/flist"):
+            try: 
+                if playlist: 
+                    message_content = ""
+                    for idx, file in enumerate(list(playlist), start=1):
+                        item = f"{idx}. {file['title']}\n"
+                        if len(message_content) + len(item) > 255:
+                            await self.highrise.send_whisper(user.id, f"\n{message_content.strip()}")
+                            message_content = item
+                        else:
+                            message_content += item
+                    if message_content:
+                        await self.highrise.send_whisper(user.id, f"\n{message_content.strip()}")
+                else:
+                    await self.highrise.send_whisper(user.id, "The queue is empty.")
+            except Exception as e:
+                print(f"Error in /flist command: {e}")
+                await self.highrise.send_whisper(user.id, "Error checking the queue.")
+
+        if message.startswith("/fav") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                if self.now:
+                    fav = self.now[0]
+                    if any(item['url'] == fav['url'] for item in playlist):
+                        await self.highrise.chat(f"{fav['title']} is already in the favorites playlist.")
+                        return
+                    if fav['url'] in AUDIO_FILES:
+                        await self.highrise.send_whisper(user.id, "• Note: you can only add requested songs to favorites.")
+                    else:
+                        permanent_file = f"/home/container/fav/{fav['title']}.mp3"
+                        try:
+                            shutil.copy(fav['url'], permanent_file)
+                        except Exception as e:
+                            print("Error in /fav copy:", e)
+                            return
+                        fav['url'] = permanent_file
+                        playlist.append(fav)
+                        await self.highrise.chat(f"{fav['title']} has been added to the favorites playlist.")
+                else:
+                    await self.highrise.chat("Nothing is playing right now.")
+            except Exception as e:
+                print("Error in /fav command:", e)
+
+        if message.startswith("/cfav"):
+            if user.username in ownerz or user.username == "thisuserisded":
+                if playlist:
+                    for item in playlist:
+                        if os.path.exists(item['url']):
+                            try:
+                                os.remove(item['url'])
+                            except:
+                                print("Error in /cfav for loop:", e)
+                    playlist.clear()
+                    await self.highrise.chat("Fav playlist is cleared.")
+                else:
+                    await self.highrise.chat("Fav playlist is already empty.")
+            else:
+                await self.highrise.send_whisper(user.id, "You dont have access to this command.")
+
+        if message.startswith("/cmsg") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                if msg:
+                    msg.clear()
+                    await self.highrise.chat("Message list is cleared.")
+                else:
+                    await self.highrise.chat("Message list is already empty.")
+            except:
+                print("Error in /cmsg:", e)
+
+        if message.startswith("/rmsg ") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                user = message.split(" ", 1)[1]
+                username = user.replace("@", "")
+                room_users = (await self.highrise.get_room_users()).content
+                user_id = None
+                for user in room_users:
+                    if user[0].username.lower() == username.lower():
+                        user_id = user[0].id
+                        break
+                if user_id is None:
+                    await self.highrise.send_whisper(user.id,"User not found in room.")
+                    return
+                if user_id in msg:
+                    msg.remove(user_id)
+                    await self.highrise.chat(f"User @{username} is removed from message list.")
+                else:
+                    await self.highrise.chat("User is not in list.")
+            except Exception as e:
+                    print("Error in /rmsg:", e)
+
+        if message.startswith("/msg ") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                user = message.split(" ", 1)[1]
+                username = user.replace("@", "")
+                room_users = (await self.highrise.get_room_users()).content
+                user_id = None
+                for user in room_users:
+                    if user[0].username.lower() == username.lower():
+                        user_id = user[0].id
+                        break
+                if user_id is None:
+                    await self.highrise.send_whisper(user.id,"User not found in room.")
+                    return
+                if user_id not in msg:
+                    msg.append(user_id)
+                    await self.highrise.chat(f"User @{username} is added to message list.")
+                else:
+                    await self.highrise.chat("User is already in list.")
+            except Exception as e:
+                    print("Error in /msg:", e)
+
+        if message.startswith("/res ") and user.username in ownerz:
+            try:    
+                res = message.split(" ", 1)[1]
+                if not res in restrict:
+                    restrict.append(res)
+                    await self.highrise.chat("This song is added to restricted songs.")
+                else:
+                    await self.highrise.chat("This song is already is restricted.")
+            except Exception as e:
+                print(f"Error in /restrict command: {e}")
+                
+        if message.startswith("/unres ") and user.username in ownerz:
+            try:    
+                res = message.split(" ", 1)[1]
+                if res in restrict:
+                    restrict.remove(res)
+                    await self.highrise.chat("This song is removed from restricted songs.")
+                else:
+                    await self.highrise.chat("This song is not restricted.")
+            except Exception as e:
+                print(f"Error in /unrestrict command: {e}")
+
+        if message.startswith("/promo ") and user.username in ownerz:
+            try:    
+                prom = message.lstrip("/promo ").strip()
+                if prom:
+                    if prom not in promo:
+                        promo.append(prom)
+                        await self.highrise.chat("This message has been added to the promo list.")
+                    else:
+                        await self.highrise.chat("This message is already in the promo list.")
+                else:
+                    await self.highrise.chat("Please provide a promotional message after /promo.")
+            except Exception as e:
+                print(f"Error in /promo command: {e}")
+                
+        if message.startswith("/rpromo ") and user.username in ownerz:
+            try:    
+                prom = message.lstrip("/promo ").strip()
+                if prom:
+                    if prom in promo:
+                        promo.remove(prom)
+                        await self.highrise.chat("This message is removed from promo list.")
+                    else:
+                        await self.highrise.chat("This message is not in promo list.")
+                else:
+                    await self.highrise.chat("Please provide a promotional message after /promo.")
+            except Exception as e:
+                print(f"Error in /rpromo command: {e}")
+
+        if message.startswith("/cpromo"):
+            try:
+                if user.username == "thisuserisded" or user.username in ownerz:
+                    if promo:
+                        promo.clear()
+                        await self.highrise.chat("Cleared promo list.")
+                    else:
+                        await self.highrise.chat("Promo list is already empty.")
+                else:
+                    pass
+            except:
+                pass
+
+        if message.startswith("/accs") and user.username in ownerz:
+            try:
+                total = len(user_ticket)
+                empty = {key: value for key, value in user_ticket.items() if value == 0}
+                active = {key: value for key, value in user_ticket.items() if value > 0 and value != 3}
+                total_empty = len(empty)
+                total_active = len(active)
+                await self.highrise.chat(f"\nThere are total {total} users, {total_active} with active accs, while only {total_empty} users have 0 balance.")
+            except Exception as e:
+                print("Error in /accs:", e)
+
+        if message.startswith("/withdraw ") and (user.username in ownerz or user.username == "thisuserisded"):
+            try:
+                parts = message.split(" ")
+                if len(parts) != 2:
+                    await self.highrise.send_whisper(user.id, "\nUsage: /withdraw [number].")
+                    return
+                try:
+                    amount = int(parts[1])
+                except:
+                    await self.highrise.send_whisper(user.id, "Dont use decimals and floats only use integars [number].")
+                    return
+                bot_wallet = await self.highrise.get_wallet()
+                bot_amount = bot_wallet.content[0].amount
+                if bot_amount <= amount:
+                    await self.highrise.send_whisper(user.id, "Sir, i dont have enough balance.")
+                    return
+                """Possible values are: "gold_bar_1",
+            "gold_bar_5", "gold_bar_10", "gold_bar_50", 
+            "gold_bar_100", "gold_bar_500", 
+            "gold_bar_1k", "gold_bar_5000", "gold_bar_10k" """
+                bars_dictionary = {10000: "gold_bar_10k", 
+                               5000: "gold_bar_5000",
+                               1000: "gold_bar_1k",
+                               500: "gold_bar_500",
+                               100: "gold_bar_100",
+                               50: "gold_bar_50",
+                               10: "gold_bar_10",
+                               5: "gold_bar_5",
+                               1: "gold_bar_1"}
+                fees_dictionary = {10000: 1000,
+                               5000: 500,
+                               1000: 100,
+                               500: 50,
+                               100: 10,
+                               50: 5,
+                               10: 1,
+                               5: 1,
+                               1: 1}
+                tip = []
+                total = 0
+                for bar in bars_dictionary:
+                    if amount >= bar:
+                        bar_amount = amount // bar
+                        amount = amount % bar
+                        for i in range(bar_amount):
+                            tip.append(bars_dictionary[bar])
+                            total = bar+fees_dictionary[bar]
+                if total > bot_amount:
+                    await self.highrise.send_whisper(user.id, "Sir, i dont have enough funds.")
+                    return
+                tip_string = ",".join(tip)
+                await self.highrise.tip_user(user.id, tip_string)
+            except Exception as e:
+                print("Error in /withdraw:", e)
+
+        if message == "/setbot" and user.username in ownerz:
+            try:
+                room_users = await self.highrise.get_room_users()
+                for room_user, pos in room_users.content:
+                    if room_user.username == user.username:
+                        bot_location["x"] = pos.x
+                        bot_location["y"] = pos.y
+                        bot_location["z"] = pos.z
+                        bot_location["facing"] = pos.facing
+                        await self.highrise.send_whisper(user.id, f"Bot location set to {bot_location}")
+                        break
+            except Exception as e:
+                print("Set bot:", e)
+
+        if message == "/base" and user.username in ownerz:
+            try:
+                if bot_location:
+                    await self.highrise.walk_to(Position(**bot_location))
+            except Exception as e:
+                print("Error in /base:", e)
+
+        if message.startswith("/bwallet"):
+            try:
+                await self.bot_wallet(user, message)
+            except:
+                pass
+    
+    async def bot_wallet(self, user: User, message: str):
+        if user.username in ownerz or user.username == "thisuserisded":
+            wallet = await self.highrise.get_wallet()
+            for item in wallet.content:
+                if item.type == "gold":
+                    gold = item.amount
+                    await self.highrise.send_whisper(user.id, f"Sir, My current balance is {gold} gold!")
+                    return
+            await self.highrise.send_whisper(f"Hello, {user.username}! I don't have any gold.")
+        else:
+            await self.highrise.send_whisper(user.id, "You don't have access to this command")
+    
+    async def on_user_join(self, user: User, pos: Position) -> None:
+        try:
+            response = await self.webapi.get_user(user.id)
+            joined_at = response.user.joined_at
+            
+            if isinstance(joined_at, datetime):
+                one_month_ago = datetime.now(joined_at.tzinfo) - timedelta(days=30)
+                if joined_at <= one_month_ago:
+                    if not user.username in user_ticket:
+                        await self.highrise.send_whisper(user.id, "Welcome to the room <3.\nDm this bot /verify to get free tickets. Each song request costs 1 ticket.")
+                        await asyncio.sleep(2)
+                        await self.highrise.send_whisper(user.id, "Type /play 'song' to request a song. Type /help for all commands.")
+                        await asyncio.sleep(1)
+                        await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @SALAR_KHAN.")
+                    else:
+                        await self.highrise.send_whisper(user.id, "Welcome back to room <3.\nType /wallet to get info of your tickets. Type /help for all commands.")
+                        await asyncio.sleep(2)
+                        await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @thisuserisded.")
+                else:
+                    await self.highrise.send_whisper(user.id, "Welcome to room <3.\nThis is a music bot. Type /rlist to get ratelist, each song request costs 1 ticket. Type /wallet to get info of your tickets. Type /play to request a song.")
+                    await asyncio.sleep(2)
+                    await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @SALAR_KHAN.")
+            else:
+                pass
+        except:
+            pass
+
+    async def on_tip(self, sender: User, receiver: User, tip: CurrencyItem | Item) -> None:
+        try:
+            if tip.amount == 1 and receiver.username == self.username:
+                if sender.username in vip_users:
+                    await self.highrise.send_whisper(sender.id, "You're already VIP, you don't need tickets.")
+                else:
+                    await self.highrise.send_whisper(sender.id, "Tip at least 5g to get a ticket.")
+
+            elif tip.amount == 5 and receiver.username == self.username:
+                user_ticket[sender.username] = user_ticket.get(sender.username, 0) + 1
+                if sender.username in vip_users:
+                    await self.highrise.send_whisper(sender.id, "You're already VIP, you don't need tickets.")
+                else:
+                    await self.highrise.chat(f"{sender.username}'s wallet has been updated with 2 tickets for tipping 5g.")
+                    await self.highrise.send_whisper(sender.id, f"Total tickets in your wallet: {user_ticket[sender.username]}")
+
+            elif tip.amount == 10 and receiver.username == self.username:
+                user_ticket[sender.username] = user_ticket.get(sender.username, 0) + 3
+                if sender.username in vip_users:
+                    await self.highrise.send_whisper(sender.id, "You're already VIP, you don't need tickets.")
+                else:
+                    await self.highrise.chat(f"{sender.username}'s wallet has been updated with 3 tickets for tipping 10g.")
+                    await self.highrise.send_whisper(sender.id, f"Total tickets in your wallet: {user_ticket[sender.username]}")
+
+            elif tip.amount == 1000 and receiver.username == self.username:
+                current_date = datetime.now().strftime("%d/%m/%Y")
+                day = datetime.now().strftime("%d")
+                if sender.username in vip_users:
+                    await self.highrise.send_whisper(user.id, "Your vip period has been extended. Thanks for tipping gold. <3")
+                    for user_id in msg:
+                        message_id = f"1_on_1:{user_id}:{self.bot_id}"
+                        try:
+                            await self.highrise.send_message(message_id, f"User @{sender.username} tipped 1000g on {current_date}.")
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            print("Error in sending msg abt tip:", e)
+
+                else:
+                    vip_users.append(sender.username)
+                    await self.highrise.send_whisper(user.id, "Youre added to vip users. If you face any error pm @SALAR_KHAN. Enjoy <3")
+                    await self.highrise.send_whisper(user.id, f"\n*NOTE*: your vip is started from {current_date}, Make sure to renew your vip before {get_ordinal(day)} of next month.")
+                    for user_id in msg:
+                        message_id = f"1_on_1:{user_id}:{self.bot_id}"
+                        try:
+                            await self.highrise.send_message(message_id, f"User @{sender.username} got their vip on {current_date}.")
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            print("Error in sending msg abt tip:", e)
+
+            elif tip.amount % 10 == 0 and tip.amount >= 10 and receiver.username == self.username:
+                tickets = (tip.amount // 10) * 3
+                user_ticket[sender.username] = user_ticket.get(sender.username, 0) + tickets
+                await self.highrise.chat(f"{sender.username}'s wallet has been updated with {tickets} tickets for tipping {tip.amount}g.")
+                await self.highrise.send_whisper(sender.id, f"Total tickets in your wallet: {user_ticket[sender.username]}")
+            else:
+                pass
+        except Exception as e:
+            print(e)
+            await self.highrise.send_whisper(sender.id, f"Error occurred: {e}. Please inform @thisuserisded.")
+
+    async def add_to_queue(self, query, user):
+        """Search for a song and add it to the queue using yt-dlp."""
+        buffered_file_path, track_duration, track = await self.search_track(query, user)
+        if buffered_file_path:
+            self.req_files.append({
+                'url': buffered_file_path,
+                'title': track['title'],
+                'uploader': track['uploader'],
+                'duration': track_duration,
+                'user': user.username,
+            })
+            await self.highrise.chat(f'🎵 {track["title"]}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• ({track_duration}) added to queue\n (Requested by @{user.username})')
+            if user.username in user_ticket:
+                if user.username not in ownerz:
+                    if user.username not in vip_users:
+                        user_ticket[user.username] -= 1
+                        await self.highrise.send_whisper(user.id, f"Remaining tickets in your wallet: {user_ticket[user.username]}")
+        else:
+            await asyncio.sleep(2)
+            await self.highrise.send_whisper(user.id, "Couldn't add your song. Make sure to not request same song that's already in queue and dont request songs longer than 6 minutes.")
+            await asyncio.sleep(2)
+            await self.highrise.send_whisper(user.id, "Your ticket is returned to your wallet. Try again.")
+
+    async def download_chunk(self, session, url, start, end, queue):
+        headers = {'Range': f'bytes={start}-{end}'}
+        async with session.get(url, headers=headers) as response:
+            if response.status not in [206, 200]:
+                print(f"Failed to download chunk: {response.status}")
+                await queue.put(None)
+                return
+
+            chunk = await response.content.read()
+            await queue.put((start, chunk))
+
+    async def download_audio(self, session, audio_url, download_queue):
+        retries = 3
+        for attempt in range(retries):
+            async with session.head(audio_url) as response:
+                if response.status == 302:
+                    audio_url = response.headers['Location']
+                    continue
+                if response.status != 200:
+                    print(f"Failed to get audio info: {response.status}")
+                    await download_queue.put(None)
+                    return
+                break
+            asyncio.sleep(1)
+        else:
+            print("Failed to get audio info after retries")
+            await download_queue.put(None)
+            return
+
+        total_size = int(response.headers.get('Content-Length'))
+        chunk_size = total_size // 4  # Download in 4 chunks
+
+        tasks = []
+        for i in range(4):
+            start = i * chunk_size
+            end = (i + 1) * chunk_size - 1 if i != 3 else total_size - 1
+            tasks.append(self.download_chunk(session, audio_url, start, end, download_queue))
+
+        await asyncio.gather(*tasks)
+        await download_queue.put(None)
+
+    async def write_audio(self, temp_file_path, download_queue, buffer_queue):
+        buffer_size = 10 * 1024 * 1024  # 10 MB buffer size
+
+        async with aiofiles.open(temp_file_path, 'wb') as temp_file:
+            while True:
+                item = await download_queue.get()
+                if item is None:
+                    break
+                start, chunk = item
+                await temp_file.seek(start)
+                await temp_file.write(chunk)
+                await buffer_queue.put(chunk)
+                download_queue.task_done()
+
+            await buffer_queue.put(None)
+
+    async def buffer_audio(self, audio_url):
+        async with aiohttp.ClientSession() as session:
+            try:
+                temp_file_path = tempfile.mktemp(suffix='.mp3')
+                download_queue = asyncio.Queue()
+                buffer_queue = asyncio.Queue()
+
+                download_task = asyncio.create_task(self.download_audio(session, audio_url, download_queue))
+                write_task = asyncio.create_task(self.write_audio(temp_file_path, download_queue, buffer_queue))
+
+                await asyncio.sleep(1)
+                await asyncio.gather(download_task, write_task)
+                return temp_file_path
+
+            except Exception as e:
+                print(f"Buffering error: {e}")
+                return None
+
+    async def search_track(self, query, user):
+        """Search for a track using yt-dlp and buffer the audio."""
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'noplaylist': True,
+            'quiet': True,
+            'default_search': 'ytsearch1',
+            'max_downloads': 1,  # Limit the search to only 1 result
+            'match_filter': yt_dlp.utils.match_filter_func('duration > 10 & duration < 450 & view_count > 1000'),
+            'extractor_args': {'youtube': {'skip': ['dash', 'hls']}}
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                if query.startswith("http"):
+                    info = ydl.extract_info(query, download=False)
+                else:
+                    info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
+
+                track_url = info['url']
+                track_duration = f"{info['duration'] // 60}:{info['duration'] % 60:02d}"
+                track = {
+                    "title": info['title'],
+                    "uploader": info['uploader']
+                }
+                for items in self.req_files:
+                    if items["title"] == info['title']:
+                        await self.highrise.send_whisper(user.id, "The song is already in queue.")
+                        return None, None, None
+
+                attempts = 0
+                while attempts < 3:
+                    buffered_file_path = await self.buffer_audio(track_url)
+                    file_size = os.path.getsize(buffered_file_path)
+                    if file_size >= 4 * 1024:
+                        break
+                    attempts += 1
+                    await asyncio.sleep(1)
+
+                if file_size >= 4 * 1024:
+                    return buffered_file_path, track_duration, track
+                else:
+                    return None, None, None
+        except Exception as e:
+            print(f"Error searching track: {e}")
+            return None, None, None
+
+    async def promo(self):
+        while True:
+            try:
+                for items in promo:
+                    await self.highrise.chat(items)
+                    await asyncio.sleep(100)
+                else:
+                    await asyncio.sleep(100)
+            except:
+                pass
+            await asyncio.sleep(300)
+
+    async def notification(self):
+        while True:
+            try:
+                if not self.req_files:
+                    await self.highrise.chat("There are no song requests left. Type /play to request a song.")
+            except:
+                pass
+            await asyncio.sleep(277)
+    
+    async def print_messages(self):
+        while True:
+            try:
+                if self.message:
+                    nowplaying = self.message[0]
+                    fix_nowplaying = nowplaying['title']
+                    if nowplaying['user']:
+                        await self.highrise.chat(f"🎵 Now playing: {fix_nowplaying}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {nowplaying['audio_length']}\n (Requested by @{nowplaying['user']})")
+                    else:
+                        await self.highrise.chat(f"🎵 Now playing: {fix_nowplaying}\n 🎵 ▷ •ı||ıı|ıı|ı||ı|ıı||ı• {nowplaying['audio_length']}")
+                    self.message.clear()
+            except:
+                pass
+            await asyncio.sleep(5)
+
+    async def run(self, room_id: str, token: str):
+        definitions = [BotDefinition(self, room_id, token)]
+        await __main__.main(definitions)
+    
+    def get_audio_length(self, audio_path):
+        try:
+            audio = MP3(audio_path)
+            length = audio.info.length
+            length = max(length, 0)
+            minutes = int(length // 60)
+            seconds = int(length % 60)
+            return f"{minutes}:{seconds:02d}"
+        except Exception as e:
+            print(f"Error getting audio length for {audio_path}: {e}")
+            return None
+
+def get_ordinal(n):
+    if 10 <= n % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return str(n) + suffix
+
+def connect_to_icecast():
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+        sock.connect((SERVER_HOST, SERVER_PORT))
+        print("Connected to Icecast server.")
+        
+        auth = f"source:{STREAM_PASSWORD}"
+        headers = (
+            f"PUT {MOUNT_POINT} HTTP/1.0\r\n"
+            f"Authorization: Basic {base64.b64encode(auth.encode()).decode()}\r\n"
+            f"Content-Type: audio/mpeg\r\n"
+            f"ice-name: ROBINS MUSIC ®\r\n"
+            f"ice-genre: Various\r\n"
+            f"ice-url: http://{SERVER_HOST}:{SERVER_PORT}{MOUNT_POINT}\r\n"
+            f"ice-public: 1\r\n"
+            f"ice-audio-info: bitrate=320\r\n"
+            f"\r\n"
+        )
+        sock.sendall(headers.encode('utf-8'))
+        
+        response = sock.recv(1024).decode('utf-8')
+        print(f"Server response: {response}")
+        
+        if "HTTP/1.0 200 OK" in response:
+            print("Authentication successful.")
+        else:
+            print("Unexpected server response. Closing connection.")
+            sock.close()
+            return None
+        return sock
+    except Exception as e:
+        print(f"Connection error: {e}")
+        return None
+
+
+def start_streaming(bot_instance):
+    try:
+        while True:
+            sock = connect_to_icecast()
+            if sock:
+                try:
+                    while True:
+                        if bot_instance.req_files:
+                            audio_file = bot_instance.req_files[0]['url']
+                            print(f"Streaming from bot_instance.req_files: {bot_instance.req_files[0]['title']}")
+                        elif playlist:
+                            random.shuffle(playlist)
+                            erm = random.choice(playlist)
+                            audio_file = erm['url']
+                            print(f"Streaming from fav: {erm['title']}")
+                        else:
+                            random.shuffle(AUDIO_FILES)
+                            audio_file = random.choice(AUDIO_FILES)
+
+                        success = stream_audio(sock, audio_file, bot_instance)
+                        if not success:
+                            print("Stream interrupted, attempting reconnection...")
+                            sock.close()
+                            break
+
+                        if bot_instance.skip:
+                            bot_instance.skip = False
+                            if bot_instance.now:
+                                current_song = bot_instance.now.popleft()
+                                for index, item in enumerate(bot_instance.req_files):
+                                    if item == current_song:
+                                        del bot_instance.req_files[index]
+                                        break
+                                print(f"Skipped: {current_song['title']}")
+                            continue
+                except Exception as e:
+                    print(f"Error during streaming: {e}")
+                    if sock:
+                        sock.close()
+            else:
+                print("Failed to connect to Icecast server.")
+
+            print("Reconnecting ...")
+            time.sleep(3)
+    except Exception as e:
+        print(f"Error in start_streaming: {e}")
+
+def stream_audio(sock, audio_file, bot_instance):
+    try:
+        print(f"Streaming audio file: {audio_file}")
+        if audio_file != "Nothing.mp3":
+            bot_instance.now.clear()
+            bot_instance.message.clear()
+            if audio_file in AUDIO_FILES:
+                bot_instance.now.append({
+                    'url': audio_file,
+                    'title': audio_file.replace(".mp3", ""),
+                    'user': None,
+                    'audio_length': bot_instance.get_audio_length(audio_file)
+                })
+                bot_instance.message.append({
+                    'url': audio_file,
+                    'title': audio_file.replace(".mp3", ""),
+                    'user': None,
+                    'audio_length': bot_instance.get_audio_length(audio_file)
+                })
+        
+        if playlist:
+            matching_item = next((item for item in playlist if item['url'] == audio_file), None)
+            if matching_item:
+                details = {
+                'url': matching_item['url'],
+                'title': matching_item['title'],
+                'user': None,
+                'audio_length': matching_item['audio_length']
+                }
+                bot_instance.now.append(details)
+                bot_instance.message.append(details)
+    
+        if bot_instance.req_files:
+            if audio_file == bot_instance.req_files[0]['url']:
+                bot_instance.now.append({
+            'url': bot_instance.req_files[0]['url'],
+            'title': bot_instance.req_files[0]['title'],
+            'user': bot_instance.req_files[0]['user'],
+            'audio_length': bot_instance.req_files[0]['duration']
+        })
+                bot_instance.message.append({
+            'url': bot_instance.req_files[0]['url'],
+            'title': bot_instance.req_files[0]['title'],
+            'user': bot_instance.req_files[0]['user'],
+            'audio_length': bot_instance.req_files[0]['duration']
+        })
+        else:
+            pass
+
+        command = [
+            'ffmpeg',
+            '-re',
+            '-i', audio_file,
+            '-map', '0:a',
+            '-c:a', 'libmp3lame',
+            '-ar', '44100',
+            '-b:a', bot_instance.bitrate,
+            '-f', 'mp3',
+            '-content_type', 'audio/mpeg',
+            '-buffer_size', '500k',
+            '-'
+        ]
+        
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        while True:
+            data = process.stdout.read(4096)
+            if bot_instance.skip:
+                print(f"Skipping: {audio_file}")
+                process.terminate()
+                for index, item in enumerate(bot_instance.req_files):
+                    if item['url'] == audio_file:
+                        del bot_instance.req_files[index]
+                        break
+                if os.path.exists(audio_file):
+                    if audio_file not in AUDIO_FILES:
+                        if not any(item['url'] == audio_file for item in playlist):
+                            try:
+                                os.remove(audio_file)
+                                print(f"Temporary file removed: {audio_file}")
+                            except Exception as e:
+                                print(f"Error cleaning up temporary file {audio_file}: {e}")
+                return True
+            if not data:
+                process.terminate()
+                print(f"Finished streaming: {audio_file}")
+                bot_instance.message.clear()
+                bot_instance.now.clear()
+                # Clean up the req_files and now lists
+                for index, item in enumerate(bot_instance.req_files):
+                    if item['url'] == audio_file:
+                        del bot_instance.req_files[index]
+                        break
+                if os.path.exists(audio_file):
+                    if audio_file not in AUDIO_FILES:
+                        if not any(item['url'] == audio_file for item in playlist):
+                            try:
+                                os.remove(audio_file)
+                                print(f"Temporary file removed: {audio_file}")
+                            except Exception as e:
+                                print(f"Error cleaning up temporary file {audio_file}: {e}")
+
+                return True
+            try:
+                sock.sendall(data)
+            except (BrokenPipeError, ConnectionResetError) as e:
+                print(f"Connection lost while sending chunk: {e}")
+                process.terminate()
+                return False
+            time.sleep(0.05)
+    except Exception as e:
+        print(f"Streaming error: {e}")
+        return False
+
+def cleanup_temp_file(self, temp_file_path):
+    """Remove the temporary file from memory."""
+    try:
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+            print(f"Temporary file removed: {temp_file_path}")
+    except Exception as e:
+        print(f"Error cleaning up temporary file {temp_file_path}: {e}")
