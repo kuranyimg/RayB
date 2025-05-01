@@ -3,8 +3,8 @@ import asyncio
 from youtubezeno import SEA, start_streaming
 
 async def main():
-    room_id = "ROOM ID HER"
-    token = "BOT TOKEN HERE"    
+    room_id = "6706b1dc20084804ef575ccb"
+    token = "1aa3bc4cdf336f0f398b2525ec02e70dedc5b0a0efdbfa2d8d334bfdc92aa107"    
     bot_instance = SEA()  
     # Start the streaming thread
     streaming_thread = threading.Thread(target=start_streaming, args=(bot_instance,))
