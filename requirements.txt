@@ -1,0 +1,2 @@
+highrise-bot-sdk @ git+https://github.com/itzvini/python-bot-sdk
+flask
