@@ -14,7 +14,7 @@ async def main():
         try:
             await asyncio.sleep(5)
             await bot_instance.run(room_id, token)
-        except Exception asE e:
+        except Exception as e:
             print(f"Bot error: {e}. Restarting in 5 seconds...")
             await asyncio.sleep(5)
 if __name__ == '__main__':
