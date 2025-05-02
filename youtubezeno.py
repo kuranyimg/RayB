@@ -34,9 +34,9 @@ invite = "6706b1dc20084804ef575ccb"
 # Icecast server configuration
 SERVER_HOST = "link.zeno.fm" # dont change.
 SERVER_PORT = 80 # dont change
-MOUNT_POINT = "/XYZXYZXYZ" # put ur mountpoint after / in ""
+MOUNT_POINT = "/w1qxknzdxbkuv" # put ur mountpoint after / in ""
 STREAM_USERNAME = "source" # dont change
-STREAM_PASSWORD = "XYZXYZ"#"put your password"
+STREAM_PASSWORD = "4iJGVNwr"#"put your password"
 
 AUDIO_FILES = [
     "Nothing.mp3"
@@ -66,8 +66,8 @@ class SEA(BaseBot):
         self.message = deque()
         self.wait = []
         self.state_file = "bot_state.json"
-        self.req_files_dir = "/home/container/reqfiles"
-        self.fav_dir = "/home/container/fav"
+        self.req_files_dir = "reqfiles"
+        self.fav_dir = "fav"
         os.makedirs(self.fav_dir, exist_ok=True)
         os.makedirs(self.req_files_dir, exist_ok=True)
         self.load_state()
