@@ -29,7 +29,7 @@ import random
 from datetime import datetime, timedelta
 from HRDB import ownerz, playlist, user_ticket, vip_users, msg, restrict, promo, bot_location, ids
 
-invite = "ROOM ID HER3 ALSO"
+invite = "6706b1dc20084804ef575ccb"
 
 # Icecast server configuration
 SERVER_HOST = "link.zeno.fm" # dont change.
