@@ -66,8 +66,8 @@ class SEA(BaseBot):
         self.message = deque()
         self.wait = []
         self.state_file = "bot_state.json"
-        self.req_files_dir = "reqfiles"
-        self.fav_dir = "fav"
+        self.state_file = "bot_state.json"
+        self.req_files_dir = "/home/container/reqfiles"
         os.makedirs(self.fav_dir, exist_ok=True)
         os.makedirs(self.req_files_dir, exist_ok=True)
         self.load_state()
