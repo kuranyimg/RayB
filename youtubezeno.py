@@ -950,15 +950,15 @@ class SEA(BaseBot):
                         await asyncio.sleep(2)
                         await self.highrise.send_whisper(user.id, "Type /play 'song' to request a song. Type /help for all commands.")
                         await asyncio.sleep(1)
-                        await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @SALAR_KHAN.")
+                        await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @RayBM.")
                     else:
                         await self.highrise.send_whisper(user.id, "Welcome back to room <3.\nType /wallet to get info of your tickets. Type /help for all commands.")
                         await asyncio.sleep(2)
-                        await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @thisuserisded.")
+                        await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @RayBM.")
                 else:
                     await self.highrise.send_whisper(user.id, "Welcome to room <3.\nThis is a music bot. Type /rlist to get ratelist, each song request costs 1 ticket. Type /wallet to get info of your tickets. Type /play to request a song.")
                     await asyncio.sleep(2)
-                    await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @SALAR_KHAN.")
+                    await self.highrise.send_whisper(user.id, "If the bot malfunctions pm @RayBM.")
             else:
                 pass
         except:
