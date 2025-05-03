@@ -34,9 +34,9 @@ invite = "6706b1dc20084804ef575ccb"
 # Icecast server configuration
 SERVER_HOST = "link.zeno.fm" # dont change.
 SERVER_PORT = 80 # dont change
-MOUNT_POINT = "/0ce8f5xvidguv" # put ur mountpoint after / in ""
+MOUNT_POINT = "/fufgiuifolytv" # put ur mountpoint after / in ""
 STREAM_USERNAME = "source" # dont change
-STREAM_PASSWORD = "qIMQQApw"#"put your password"
+STREAM_PASSWORD = "qbLwVhIN"#"put your password"
 
 AUDIO_FILES = [
     "Nothing.mp3"
@@ -70,6 +70,13 @@ class SEA(BaseBot):
         self.fav_dir = "fav"
         os.makedirs(self.req_files_dir, exist_ok=True)
         self.load_state()
+    async def loop_emote(self, emote_id: str, duration: float):
+        try:
+            while True:
+                await self.highrise.send_emote(emote_id)
+                await asyncio.sleep(duration)
+        except asyncio.CancelledError:
+            print("Emote loop cancelled.")
 
     def save_state(self):
         """Save the current state of the req_files deque, with updated file paths."""
@@ -159,6 +166,8 @@ class SEA(BaseBot):
 
         if self.promo_task is None or self.promo_task.done():
             self.promo_task = asyncio.create_task(self.promo())
+        if not hasattr(self, 'emote_task') or self.emote_task.done():
+            self.emote_task = asyncio.create_task(self.loop_emote("emote-ghost-idle", 18.2))
         print(f"{self.username} is alive.")
 
     async def on_message(self, user_id: str, conversation_id: str, is_new_conversation: bool) -> None:
